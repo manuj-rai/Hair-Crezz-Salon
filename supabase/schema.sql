@@ -9,6 +9,13 @@ create extension if not exists "pgcrypto";
 -- ---------------------------------------------------------------------------
 -- Tables
 -- ---------------------------------------------------------------------------
+create table if not exists public.service_categories (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null unique,
+  active     bool not null default true,
+  sort_order int  not null default 0
+);
+
 create table if not exists public.services (
   id           uuid primary key default gen_random_uuid(),
   name         text not null,
@@ -86,6 +93,7 @@ create table if not exists public.blocked_slots (
 -- Only authenticated admins can read bookings or modify anything else.
 -- ---------------------------------------------------------------------------
 alter table public.services       enable row level security;
+alter table public.service_categories enable row level security;
 alter table public.stylists       enable row level security;
 alter table public.bookings       enable row level security;
 alter table public.gallery_images enable row level security;
@@ -97,6 +105,8 @@ alter table public.blocked_slots  enable row level security;
 do $$
 begin
   -- public read
+  perform 1 from pg_policies where tablename='service_categories' and policyname='public_read';
+  if not found then create policy public_read on public.service_categories for select using (true); end if;
   perform 1 from pg_policies where tablename='services' and policyname='public_read';
   if not found then create policy public_read on public.services       for select using (true); end if;
   perform 1 from pg_policies where tablename='stylists' and policyname='public_read';
@@ -121,6 +131,8 @@ begin
   if not found then create policy auth_delete on public.bookings for delete using (auth.role() = 'authenticated'); end if;
 
   -- catalog write: authed only
+  perform 1 from pg_policies where tablename='service_categories' and policyname='auth_write';
+  if not found then create policy auth_write on public.service_categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
   perform 1 from pg_policies where tablename='services' and policyname='auth_write';
   if not found then create policy auth_write on public.services for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
   perform 1 from pg_policies where tablename='stylists' and policyname='auth_write';
@@ -138,6 +150,15 @@ end$$;
 -- ---------------------------------------------------------------------------
 -- Seed (only if tables are empty)
 -- ---------------------------------------------------------------------------
+insert into public.service_categories(name, sort_order) values
+  ('Hair',1),
+  ('Spa',2),
+  ('Skin',3),
+  ('Bridal',4),
+  ('Nails',5),
+  ('Waxing',6)
+on conflict (name) do nothing;
+
 insert into public.business_hours(day_of_week, open_time, close_time, closed) values
   (0,'10:00','19:00',false),
   (1,'10:00','20:00',false),

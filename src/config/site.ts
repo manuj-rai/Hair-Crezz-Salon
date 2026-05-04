@@ -10,6 +10,17 @@ export const site = {
   description:
     'A premium unisex salon delivering precision cuts, expert color and bridal styling in a relaxed, modern space.',
 
+  sections: {
+    hero: true,
+    whyUs: true,
+    services: true,
+    stylists: false,
+    gallery: true,
+    reviews: true,
+    cta: true,
+    contact: true,
+  },
+
   contact: {
     phone: '+91 98765 43210',
     whatsapp: '+919876543210',

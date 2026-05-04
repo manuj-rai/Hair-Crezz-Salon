@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { CalendarDays, Clock, LayoutDashboard, LogOut, Menu, Scissors, Users, X } from 'lucide-react';
+import { CalendarDays, Clock, FolderTree, LayoutDashboard, LogOut, Menu, Scissors, Users, X } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../lib/auth';
 import { repo } from '../../lib/repo';
@@ -9,10 +9,11 @@ import { cn } from '../../lib/utils';
 const links = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
+  { to: '/admin/categories', label: 'Categories', icon: FolderTree },
   { to: '/admin/services', label: 'Services', icon: Scissors },
-  { to: '/admin/stylists', label: 'Stylists', icon: Users },
+  { to: '/admin/stylists', label: 'Stylists', icon: Users, enabled: site.sections.stylists },
   { to: '/admin/hours', label: 'Business hours', icon: Clock },
-];
+].filter((link) => link.enabled ?? true);
 
 export default function AdminLayout() {
   const { user, signOut } = useAuth();

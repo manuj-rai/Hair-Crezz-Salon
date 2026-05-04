@@ -17,19 +17,19 @@ export default function Hero() {
         />
       </div>
 
-      <div className="container-x pt-12 pb-20 lg:pt-20 lg:pb-32 grid lg:grid-cols-2 gap-12 items-center">
+      <div className="container-x pt-8 pb-12 sm:pt-10 sm:pb-16 lg:pt-10 lg:pb-16 grid lg:grid-cols-[1.05fr_0.95fr] gap-8 xl:gap-12 items-center">
         <div className="animate-fade-in">
-          <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 text-accent px-3 py-1 text-xs font-medium mb-6">
+          <div className="inline-flex items-center gap-2 rounded-full bg-accent/10 text-accent px-3 py-1 text-xs font-medium mb-4">
             <Sparkles className="h-3.5 w-3.5" />
             Premium unisex salon · Trusted by 5,000+ clients
           </div>
 
-          <h1 className="h-display mb-6">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-5xl xl:text-6xl leading-[1.05] tracking-tight mb-4">
             {site.tagline.split(' ').slice(0, -1).join(' ')}{' '}
             <span className="italic text-accent">{site.tagline.split(' ').slice(-1)}</span>
           </h1>
 
-          <p className="text-lg text-muted max-w-xl mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg text-muted max-w-xl mb-6 leading-relaxed">
             {site.description}
           </p>
 
@@ -42,12 +42,12 @@ export default function Hero() {
             </a>
           </div>
 
-          <div className="mt-10 flex items-center gap-6">
+          <div className="mt-7 flex items-center gap-5">
             <div className="flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-10 w-10 rounded-full border-2 border-bg shimmer-bg animate-shimmer bg-cover bg-center"
+                  className="h-9 w-9 rounded-full border-2 border-bg shimmer-bg animate-shimmer bg-cover bg-center"
                   style={{
                     backgroundImage: `url(https://i.pravatar.cc/80?img=${i + 10})`,
                   }}
@@ -66,7 +66,7 @@ export default function Hero() {
         </div>
 
         <div className="relative animate-slide-up">
-          <div className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-glow">
+          <div className="relative aspect-[4/3] lg:aspect-[5/4] max-h-[420px] xl:max-h-[500px] rounded-2xl overflow-hidden shadow-glow">
             <img
               src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1200&q=85"
               alt="Salon interior"
@@ -80,7 +80,7 @@ export default function Hero() {
           </div>
 
           {/* floating mini-card */}
-          <div className="hidden md:block absolute -left-6 top-12 card p-4 w-56 animate-fade-in" style={{ animationDelay: '300ms' }}>
+          <div className="hidden md:block absolute -left-5 top-8 card p-4 w-56 animate-fade-in" style={{ animationDelay: '300ms' }}>
             <div className="text-xs text-muted">Today's slots</div>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {['11:00', '12:30', '15:00', '17:00', '18:30'].map((t) => (
@@ -89,7 +89,7 @@ export default function Hero() {
             </div>
           </div>
 
-          <div className="hidden md:flex absolute -right-4 bottom-12 card p-4 items-center gap-3 animate-fade-in" style={{ animationDelay: '500ms' }}>
+          <div className="hidden md:flex absolute -right-3 bottom-8 card p-4 items-center gap-3 animate-fade-in" style={{ animationDelay: '500ms' }}>
             <div className="grid place-items-center h-10 w-10 rounded-full bg-accent text-accent-fg">
               <Sparkles className="h-5 w-5" />
             </div>

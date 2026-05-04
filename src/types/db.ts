@@ -11,6 +11,13 @@ export type Service = {
   sort_order: number;
 };
 
+export type ServiceCategory = {
+  id: string;
+  name: string;
+  active: boolean;
+  sort_order: number;
+};
+
 export type Stylist = {
   id: string;
   name: string;
@@ -70,4 +77,3 @@ export type BlockedSlot = {
   end_time: string;
   reason: string | null;
 };
-

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, RotateCcw, Search, X } from 'lucide-react';
+import { Check, Plus, RotateCcw, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
 import type { Booking, BookingStatus, Service, Stylist } from '../../types/db';
-import { fmtTime12, inr } from '../../lib/utils';
+import { fmtTime12, inr, isoDate } from '../../lib/utils';
 import { cn } from '../../lib/utils';
+import { generateSlots, type Slot } from '../../lib/slots';
+import { site } from '../../config/site';
 
 const statusFilters: ({ value: BookingStatus | 'all'; label: string })[] = [
   { value: 'all', label: 'All' },
@@ -21,6 +23,7 @@ export default function AdminBookings() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'all'>('all');
   const [q, setQ] = useState('');
+  const [adding, setAdding] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -28,7 +31,7 @@ export default function AdminBookings() {
       const [b, s, st] = await Promise.all([
         repo.listBookings(),
         repo.listServices(false),
-        repo.listStylists(false),
+        site.sections.stylists ? repo.listStylists(false) : Promise.resolve([]),
       ]);
       setBookings(b);
       setServices(s);
@@ -64,9 +67,14 @@ export default function AdminBookings() {
 
   return (
     <div>
-      <header className="mb-6">
-        <h1 className="font-display text-3xl">Bookings</h1>
-        <p className="text-muted mt-1">Confirm, cancel and complete appointments.</p>
+      <header className="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl">Bookings</h1>
+          <p className="text-muted mt-1">Confirm, cancel and complete appointments.</p>
+        </div>
+        <button onClick={() => setAdding(true)} className="btn-primary">
+          <Plus className="h-4 w-4" /> Add booking
+        </button>
       </header>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -160,6 +168,197 @@ export default function AdminBookings() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {adding && (
+        <AddBookingModal
+          services={services.filter((s) => s.active)}
+          stylists={stylists.filter((s) => s.active)}
+          onClose={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+type BookingDraft = {
+  customer_name: string;
+  phone: string;
+  email: string;
+  service_id: string;
+  stylist_id: string;
+  date: string;
+  time: string;
+  notes: string;
+  status: BookingStatus;
+};
+
+function AddBookingModal({
+  services,
+  stylists,
+  onClose,
+  onCreated,
+}: {
+  services: Service[];
+  stylists: Stylist[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [draft, setDraft] = useState<BookingDraft>({
+    customer_name: '',
+    phone: '',
+    email: '',
+    service_id: services[0]?.id ?? '',
+    stylist_id: 'any',
+    date: isoDate(new Date()),
+    time: '',
+    notes: '',
+    status: 'confirmed',
+  });
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const service = services.find((s) => s.id === draft.service_id) ?? null;
+  const stylistId = site.sections.stylists && draft.stylist_id !== 'any' ? draft.stylist_id : null;
+
+  useEffect(() => {
+    if (!service || !draft.date) {
+      setSlots([]);
+      return;
+    }
+    setLoadingSlots(true);
+    setDraft((current) => ({ ...current, time: '' }));
+    const date = new Date(`${draft.date}T00:00:00`);
+    Promise.all([
+      repo.listHours(),
+      repo.listBookedTimes(draft.date, stylistId),
+      repo.listBlocked(draft.date),
+    ])
+      .then(([hours, booked, blocked]) => {
+        const hour = hours.find((h) => h.day_of_week === date.getDay());
+        setSlots(generateSlots({ date, hour, durationMin: service.duration_min, bookings: booked, blocked, now: new Date(0) }));
+      })
+      .catch(() => {
+        setSlots([]);
+        toast.error('Could not load available times');
+      })
+      .finally(() => setLoadingSlots(false));
+  }, [draft.date, draft.service_id, service, stylistId]);
+
+  async function save() {
+    if (!service) {
+      toast.error('Select a service');
+      return;
+    }
+    if (!draft.customer_name.trim() || !draft.phone.trim() || !draft.date || !draft.time) {
+      toast.error('Fill customer, phone, date and time');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await repo.createBooking({
+        customer_name: draft.customer_name.trim(),
+        phone: draft.phone.trim(),
+        email: draft.email.trim() || null,
+        service_id: service.id,
+        stylist_id: stylistId,
+        date: draft.date,
+        time: draft.time,
+        duration_min: service.duration_min,
+        price: service.price,
+        notes: draft.notes.trim() || null,
+        status: draft.status,
+      });
+      toast.success('Booking added');
+      onCreated();
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not add booking');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="card w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-display text-xl mb-4">Add booking</h3>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Customer name</label>
+            <input className="input" value={draft.customer_name} onChange={(e) => setDraft({ ...draft, customer_name: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Phone</label>
+            <input className="input" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Email optional</label>
+            <input className="input" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Status</label>
+            <select className="input" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as BookingStatus })}>
+              <option value="confirmed">Confirmed</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Service</label>
+            <select className="input" value={draft.service_id} onChange={(e) => setDraft({ ...draft, service_id: e.target.value })}>
+              <option value="" disabled>Select service</option>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} - {inr(s.price)}</option>
+              ))}
+            </select>
+          </div>
+          {site.sections.stylists && (
+            <div>
+              <label className="label">Stylist</label>
+              <select className="input" value={draft.stylist_id} onChange={(e) => setDraft({ ...draft, stylist_id: e.target.value })}>
+                <option value="any">Any stylist</option>
+                {stylists.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="label">Date</label>
+            <input className="input" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Time</label>
+            <select className="input" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })}>
+              <option value="">{loadingSlots ? 'Loading times...' : 'Select time'}</option>
+              {slots.filter((s) => s.available).map((slot) => (
+                <option key={slot.time} value={slot.time}>{fmtTime12(slot.time)}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Notes optional</label>
+            <textarea className="textarea" rows={3} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="mt-4 text-sm text-muted">
+          {service ? `${service.duration_min} min · ${inr(service.price)}` : 'Select a service to see available times.'}
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button className="btn-outline" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" onClick={save} disabled={saving || !service || !draft.time}>
+            {saving ? 'Saving...' : 'Save booking'}
+          </button>
         </div>
       </div>
     </div>

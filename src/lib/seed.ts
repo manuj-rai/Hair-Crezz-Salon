@@ -1,6 +1,15 @@
-import type { Service, Stylist, GalleryImage, Testimonial } from '../types/db';
+import type { Service, ServiceCategory, Stylist, GalleryImage, Testimonial } from '../types/db';
 
 /** Demo seed data — used in demo mode AND as starter rows for the SQL seed. */
+
+export const seedServiceCategories: ServiceCategory[] = [
+  { id: 'c1', name: 'Hair', active: true, sort_order: 1 },
+  { id: 'c2', name: 'Spa', active: true, sort_order: 2 },
+  { id: 'c3', name: 'Skin', active: true, sort_order: 3 },
+  { id: 'c4', name: 'Bridal', active: true, sort_order: 4 },
+  { id: 'c5', name: 'Nails', active: true, sort_order: 5 },
+  { id: 'c6', name: 'Waxing', active: true, sort_order: 6 },
+];
 
 export const seedServices: Service[] = [
   { id: 's1', category: 'Hair', name: "Women's Haircut & Styling", description: 'Consultation, wash, precision cut and blow-dry finish.', duration_min: 60, price: 1200, active: true, sort_order: 1 },

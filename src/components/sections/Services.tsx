@@ -1,25 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock } from 'lucide-react';
-import type { Service } from '../../types/db';
+import type { Service, ServiceCategory } from '../../types/db';
 import { repo } from '../../lib/repo';
 import { inr } from '../../lib/utils';
 
 export default function Services() {
   const [items, setItems] = useState<Service[] | null>(null);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [active, setActive] = useState<string>('All');
 
   useEffect(() => {
-    repo.listServices().then(setItems).catch(() => setItems([]));
+    Promise.all([repo.listServices(), repo.listServiceCategories()])
+      .then(([services, serviceCategories]) => {
+        setItems(services);
+        setCategories(serviceCategories);
+      })
+      .catch(() => setItems([]));
   }, []);
 
-  const categories = useMemo(() => {
+  const tabs = useMemo(() => {
+    if (categories.length > 0) return ['All', ...categories.map((c) => c.name)];
     const set = new Set<string>(['All']);
     items?.forEach((s) => set.add(s.category));
     return [...set];
-  }, [items]);
+  }, [categories, items]);
 
-  const filtered = items?.filter((s) => active === 'All' || s.category === active) ?? [];
+  const visibleCategoryNames = useMemo(() => new Set(categories.map((c) => c.name)), [categories]);
+  const filtered = items?.filter((s) => {
+    if (categories.length > 0 && !visibleCategoryNames.has(s.category)) return false;
+    return active === 'All' || s.category === active;
+  }) ?? [];
 
   return (
     <section id="services" className="section">
@@ -33,7 +44,7 @@ export default function Services() {
             </p>
           </div>
           <div className="flex gap-2 overflow-x-auto -mx-4 px-4 md:overflow-visible md:mx-0 md:px-0">
-            {categories.map((c) => (
+            {tabs.map((c) => (
               <button
                 key={c}
                 onClick={() => setActive(c)}

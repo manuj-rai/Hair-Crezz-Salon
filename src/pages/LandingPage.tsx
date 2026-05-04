@@ -17,17 +17,17 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-full">
+    <div className="min-h-full pb-24 lg:pb-0">
       <Header />
       <main>
-        <Hero />
-        <WhyUs />
-        <Services />
-        <Stylists />
-        <Gallery />
-        <Testimonials />
-        <CTA />
-        <Contact />
+        {site.sections.hero && <Hero />}
+        {site.sections.whyUs && <WhyUs />}
+        {site.sections.services && <Services />}
+        {site.sections.stylists && <Stylists />}
+        {site.sections.gallery && <Gallery />}
+        {site.sections.reviews && <Testimonials />}
+        {site.sections.cta && <CTA />}
+        {site.sections.contact && <Contact />}
       </main>
       <Footer />
     </div>

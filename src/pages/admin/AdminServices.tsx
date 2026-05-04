@@ -2,19 +2,27 @@ import { useEffect, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
-import type { Service } from '../../types/db';
+import type { Service, ServiceCategory } from '../../types/db';
 import { inr } from '../../lib/utils';
 
 type Editing = (Partial<Service> & { name: string; price: number; duration_min: number; category: string }) | null;
 
 export default function AdminServices() {
   const [items, setItems] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Editing>(null);
 
   async function load() {
     setLoading(true);
-    try { setItems(await repo.listServices(false)); } finally { setLoading(false); }
+    try {
+      const [serviceList, categoryList] = await Promise.all([
+        repo.listServices(false),
+        repo.listServiceCategories(false),
+      ]);
+      setItems(serviceList);
+      setCategories(categoryList);
+    } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -45,7 +53,7 @@ export default function AdminServices() {
           <p className="text-muted mt-1">Add, edit and price the salon menu.</p>
         </div>
         <button
-          onClick={() => setEditing({ name: '', category: 'Hair', price: 0, duration_min: 30, description: '', active: true })}
+          onClick={() => setEditing({ name: '', category: categories[0]?.name ?? '', price: 0, duration_min: 30, description: '', active: true })}
           className="btn-primary"
         >
           <Plus className="h-4 w-4" /> Add service
@@ -107,7 +115,12 @@ export default function AdminServices() {
               </div>
               <div>
                 <label className="label">Category</label>
-                <input className="input" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })} />
+                <select className="input" value={editing.category} onChange={(e) => setEditing({ ...editing, category: e.target.value })}>
+                  <option value="" disabled>Select category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.name}>{category.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="label">Price (INR)</label>

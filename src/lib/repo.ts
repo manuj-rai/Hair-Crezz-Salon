@@ -6,6 +6,7 @@
 import { isSupabaseConfigured, supabase } from './supabase';
 import {
   seedGallery,
+  seedServiceCategories,
   seedServices,
   seedStylists,
   seedTestimonials,
@@ -17,6 +18,7 @@ import type {
   BusinessHour,
   GalleryImage,
   Service,
+  ServiceCategory,
   Stylist,
   Testimonial,
 } from '../types/db';
@@ -26,6 +28,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // --- in-memory stores (only used in demo mode) ----------------------------
 const memServices = [...seedServices];
+const memServiceCategories = [...seedServiceCategories];
 const memStylists = [...seedStylists];
 const memGallery = [...seedGallery];
 const memTestimonials = [...seedTestimonials];
@@ -44,6 +47,83 @@ const uid = () => Math.random().toString(36).slice(2, 11);
 
 export const repo = {
   mode: isSupabaseConfigured ? ('supabase' as const) : ('demo' as const),
+
+  // ---- service categories ----
+  async listServiceCategories(activeOnly = true): Promise<ServiceCategory[]> {
+    if (!supabase) {
+      const configured = memServiceCategories
+        .filter((c) => !activeOnly || c.active)
+        .sort((a, b) => a.sort_order - b.sort_order);
+      const existingNames = new Set(configured.map((c) => c.name));
+      const derived = Array.from(new Set(memServices.map((s) => s.category)))
+        .filter((name) => !existingNames.has(name))
+        .map((name, i) => ({
+          id: `derived-${name}`,
+          name,
+          active: true,
+          sort_order: configured.length + i + 1,
+        }));
+      return [...configured, ...derived];
+    }
+
+    const q = supabase.from('service_categories').select('*').order('sort_order').order('name');
+    const { data, error } = activeOnly ? await q.eq('active', true) : await q;
+    if (error) throw error;
+    return (data ?? []) as ServiceCategory[];
+  },
+  async upsertServiceCategory(c: Partial<ServiceCategory> & { name: string }): Promise<ServiceCategory> {
+    const name = c.name.trim();
+    if (!name) throw new Error('Category name is required');
+
+    if (!supabase) {
+      const idx = memServiceCategories.findIndex((x) => x.id === c.id);
+      const previousName = idx >= 0 ? memServiceCategories[idx].name : null;
+      const next: ServiceCategory = {
+        id: c.id ?? uid(),
+        name,
+        active: c.active ?? true,
+        sort_order: c.sort_order ?? memServiceCategories.length + 1,
+      };
+      if (idx >= 0) memServiceCategories[idx] = next; else memServiceCategories.push(next);
+      if (previousName && previousName !== next.name) {
+        memServices.forEach((s) => {
+          if (s.category === previousName) s.category = next.name;
+        });
+      }
+      return next;
+    }
+
+    const previousName = c.id
+      ? (await supabase.from('service_categories').select('name').eq('id', c.id).maybeSingle()).data?.name
+      : null;
+    const { data, error } = await supabase.from('service_categories').upsert({ ...c, name }).select().single();
+    if (error) throw error;
+    if (previousName && previousName !== name) {
+      const { error: updateError } = await supabase.from('services').update({ category: name }).eq('category', previousName);
+      if (updateError) throw updateError;
+    }
+    return data as ServiceCategory;
+  },
+  async deleteServiceCategory(id: string) {
+    if (!supabase) {
+      const category = memServiceCategories.find((x) => x.id === id);
+      if (category && memServices.some((s) => s.category === category.name)) throw new Error('Category is used by services');
+      const i = memServiceCategories.findIndex((x) => x.id === id);
+      if (i >= 0) memServiceCategories.splice(i, 1);
+      return;
+    }
+
+    const { data: category, error: categoryError } = await supabase.from('service_categories').select('name').eq('id', id).single();
+    if (categoryError) throw categoryError;
+    const { count, error: countError } = await supabase
+      .from('services')
+      .select('id', { count: 'exact', head: true })
+      .eq('category', category.name);
+    if (countError) throw countError;
+    if ((count ?? 0) > 0) throw new Error('Category is used by services');
+    const { error } = await supabase.from('service_categories').delete().eq('id', id);
+    if (error) throw error;
+  },
 
   // ---- services ----
   async listServices(activeOnly = true): Promise<Service[]> {
@@ -122,19 +202,19 @@ export const repo = {
   },
 
   // ---- bookings ----
-  async createBooking(input: Omit<Booking, 'id' | 'status' | 'created_at'>): Promise<Booking> {
+  async createBooking(input: Omit<Booking, 'id' | 'status' | 'created_at'> & { status?: BookingStatus }): Promise<Booking> {
     if (!supabase) {
       await sleep(400); // give the loading state a beat for realism
       const b: Booking = {
         ...input,
         id: uid(),
-        status: 'pending',
+        status: input.status ?? 'pending',
         created_at: new Date().toISOString(),
       };
       memBookings.unshift(b);
       return b;
     }
-    const { data, error } = await supabase.from('bookings').insert({ ...input, status: 'pending' }).select().single();
+    const { data, error } = await supabase.from('bookings').insert({ ...input, status: input.status ?? 'pending' }).select().single();
     if (error) throw error;
     return data as Booking;
   },

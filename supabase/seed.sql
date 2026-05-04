@@ -1,4 +1,13 @@
 -- Optional starter data. Safe to skip if you'll add via /admin instead.
+insert into public.service_categories (name, sort_order) values
+  ('Hair',1),
+  ('Spa',2),
+  ('Skin',3),
+  ('Bridal',4),
+  ('Nails',5),
+  ('Waxing',6)
+on conflict (name) do nothing;
+
 insert into public.services (name, category, description, duration_min, price, sort_order) values
   ('Women''s Haircut & Styling','Hair','Consultation, wash, precision cut and blow-dry finish.',60,1200,1),
   ('Men''s Haircut','Hair','Classic or modern cuts tailored to your face shape.',45,600,2),
