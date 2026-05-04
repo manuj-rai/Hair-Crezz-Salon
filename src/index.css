@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Theme tokens. Override these via src/config/theme.ts (it injects CSS vars at runtime),
+  or set them statically here for a fully static deploy.
+*/
+:root {
+  --c-bg: 250 248 246;
+  --c-surface: 255 255 255;
+  --c-border: 232 226 220;
+  --c-ink: 24 24 27;
+  --c-muted: 113 113 122;
+  --c-primary: 24 24 27;
+  --c-primary-fg: 250 248 246;
+  --c-accent: 184 134 71;
+  --c-accent-fg: 24 24 27;
+  --font-sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Playfair Display', 'Georgia', serif;
+}
+
+html, body, #root { height: 100%; }
+html { scroll-behavior: smooth; }
+body {
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .container-x { @apply container mx-auto px-4 sm:px-6 lg:px-8; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium
+           transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
+           focus-visible:ring-offset-bg;
+  }
+  .btn-primary { @apply btn bg-primary text-primary-fg hover:opacity-90 hover:shadow-glow; }
+  .btn-accent  { @apply btn bg-accent text-accent-fg hover:brightness-110 hover:shadow-glow; }
+  .btn-outline { @apply btn border border-border bg-transparent text-ink hover:bg-surface; }
+  .btn-ghost   { @apply btn bg-transparent text-ink hover:bg-surface; }
+  .btn-sm      { @apply px-4 py-2 text-xs; }
+
+  .card { @apply bg-surface border border-border rounded-2xl shadow-soft; }
+
+  .input, .select, .textarea {
+    @apply w-full rounded-xl border-border bg-surface text-ink placeholder:text-muted
+           shadow-sm focus:border-accent focus:ring-accent;
+  }
+
+  .label { @apply block text-sm font-medium text-ink mb-1.5; }
+
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+
+  .section { @apply py-16 sm:py-20 lg:py-28; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.2em] text-accent; }
+  .h-display { @apply font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight; }
+}
+
+/* shimmer placeholder bg */
+.shimmer-bg {
+  background: linear-gradient(110deg, rgb(var(--c-border) / 0.4) 8%, rgb(var(--c-border) / 0.7) 18%, rgb(var(--c-border) / 0.4) 33%);
+  background-size: 200% 100%;
+}
