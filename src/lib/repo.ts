@@ -5,6 +5,7 @@
  */
 import { isSupabaseConfigured, supabase } from './supabase';
 import {
+  generateSeedBookings,
   seedGallery,
   seedServiceCategories,
   seedServices,
@@ -32,7 +33,7 @@ const memServiceCategories = [...seedServiceCategories];
 const memStylists = [...seedStylists];
 const memGallery = [...seedGallery];
 const memTestimonials = [...seedTestimonials];
-const memBookings: Booking[] = [];
+const memBookings: Booking[] = generateSeedBookings();
 const memBlocked: BlockedSlot[] = [];
 const memHours: BusinessHour[] = site.hours.map((h, i) => ({
   day_of_week: ((i + 1) % 7), // mon=1..sun=0
@@ -241,6 +242,26 @@ export const repo = {
     const { error } = await supabase.from('bookings').update({ status }).eq('id', id);
     if (error) throw error;
   },
+  async updateBooking(id: string, patch: Partial<Omit<Booking, 'id' | 'created_at'>>): Promise<Booking> {
+    if (!supabase) {
+      const i = memBookings.findIndex((x) => x.id === id);
+      if (i < 0) throw new Error('Booking not found');
+      memBookings[i] = { ...memBookings[i], ...patch };
+      return memBookings[i];
+    }
+    const { data, error } = await supabase.from('bookings').update(patch).eq('id', id).select().single();
+    if (error) throw error;
+    return data as Booking;
+  },
+  async deleteBooking(id: string) {
+    if (!supabase) {
+      const i = memBookings.findIndex((x) => x.id === id);
+      if (i >= 0) memBookings.splice(i, 1);
+      return;
+    }
+    const { error } = await supabase.from('bookings').delete().eq('id', id);
+    if (error) throw error;
+  },
   async listBookedTimes(date: string, stylistId: string | null): Promise<{ time: string; duration_min: number }[]> {
     if (!supabase) {
       return memBookings
@@ -282,10 +303,62 @@ export const repo = {
     if (error) throw error;
     return (data ?? []) as BusinessHour[];
   },
+  async upsertHours(h: BusinessHour): Promise<BusinessHour> {
+    if (!supabase) {
+      const i = memHours.findIndex((x) => x.day_of_week === h.day_of_week);
+      if (i >= 0) memHours[i] = h; else memHours.push(h);
+      return h;
+    }
+    const { data, error } = await supabase
+      .from('business_hours')
+      .upsert(h, { onConflict: 'day_of_week' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as BusinessHour;
+  },
   async listBlocked(date: string): Promise<BlockedSlot[]> {
     if (!supabase) return memBlocked.filter((b) => b.date === date);
     const { data, error } = await supabase.from('blocked_slots').select('*').eq('date', date);
     if (error) throw error;
     return (data ?? []) as BlockedSlot[];
+  },
+  async listBlockedRange(start: string, end: string): Promise<BlockedSlot[]> {
+    if (!supabase) return memBlocked.filter((b) => b.date >= start && b.date <= end);
+    const { data, error } = await supabase
+      .from('blocked_slots')
+      .select('*')
+      .gte('date', start)
+      .lte('date', end)
+      .order('date')
+      .order('start_time');
+    if (error) throw error;
+    return (data ?? []) as BlockedSlot[];
+  },
+  async upsertBlocked(b: Partial<BlockedSlot> & { date: string; start_time: string; end_time: string }): Promise<BlockedSlot> {
+    if (!supabase) {
+      const idx = memBlocked.findIndex((x) => x.id === b.id);
+      const next: BlockedSlot = {
+        id: b.id ?? uid(),
+        date: b.date,
+        start_time: b.start_time,
+        end_time: b.end_time,
+        reason: b.reason ?? null,
+      };
+      if (idx >= 0) memBlocked[idx] = next; else memBlocked.push(next);
+      return next;
+    }
+    const { data, error } = await supabase.from('blocked_slots').upsert(b).select().single();
+    if (error) throw error;
+    return data as BlockedSlot;
+  },
+  async deleteBlocked(id: string) {
+    if (!supabase) {
+      const i = memBlocked.findIndex((x) => x.id === id);
+      if (i >= 0) memBlocked.splice(i, 1);
+      return;
+    }
+    const { error } = await supabase.from('blocked_slots').delete().eq('id', id);
+    if (error) throw error;
   },
 };

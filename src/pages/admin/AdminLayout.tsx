@@ -1,6 +1,6 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, FolderTree, LayoutDashboard, LogOut, Menu, Scissors, Users, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../lib/auth';
 import { repo } from '../../lib/repo';
 import { site } from '../../config/site';
@@ -12,33 +12,59 @@ const links = [
   { to: '/admin/categories', label: 'Categories', icon: FolderTree },
   { to: '/admin/services', label: 'Services', icon: Scissors },
   { to: '/admin/stylists', label: 'Stylists', icon: Users, enabled: site.sections.stylists },
-  { to: '/admin/hours', label: 'Business hours', icon: Clock },
+  { to: '/admin/hours', label: 'Hours & blocks', icon: Clock },
 ].filter((link) => link.enabled ?? true);
 
 export default function AdminLayout() {
   const { user, signOut } = useAuth();
   const nav = useNavigate();
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
+
+  // Auto-close drawer on route change.
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  const currentLabel = links.find((l) => (l.end ? pathname === l.to : pathname.startsWith(l.to)))?.label ?? 'Admin';
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
-      {/* mobile top bar */}
-      <div className="lg:hidden flex items-center justify-between p-3 border-b border-border bg-surface">
-        <Link to="/" className="font-display">{site.name} · Admin</Link>
-        <button aria-label="menu" onClick={() => setOpen((v) => !v)}>
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+      {/* Mobile top bar */}
+      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-3 py-2.5 border-b border-border bg-bg/95 backdrop-blur">
+        <button
+          aria-label="Open menu"
+          onClick={() => setOpen(true)}
+          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink"
+        >
+          <Menu className="h-5 w-5" />
         </button>
+        <div className="flex flex-col items-center -mt-0.5">
+          <span className="text-[10px] uppercase tracking-wider text-muted leading-none">{site.shortName} Admin</span>
+          <span className="font-display text-base leading-tight">{currentLabel}</span>
+        </div>
+        <Link
+          to="/"
+          aria-label="Back to public site"
+          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink"
+        >
+          <X className="h-4 w-4" />
+        </Link>
       </div>
 
-      {/* sidebar */}
-      <aside
-        className={cn(
-          'border-r border-border bg-surface flex flex-col',
-          'lg:sticky lg:top-0 lg:h-screen',
-          open ? 'block' : 'hidden lg:flex',
-        )}
-      >
-        <div className="p-6 hidden lg:block">
+      {/* Mobile drawer */}
+      {open && (
+        <div className="lg:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <aside className="absolute left-0 top-0 h-full w-[260px] bg-surface border-r border-border flex flex-col shadow-xl animate-fade-in">
+            <DrawerHeader onClose={() => setOpen(false)} />
+            <NavList />
+            <UserPanel email={user?.email} onSignOut={async () => { await signOut(); nav('/admin/login'); }} />
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen border-r border-border bg-surface flex-col">
+        <div className="p-5">
           <Link to="/" className="font-display text-lg leading-tight block">{site.name}</Link>
           <span className="text-xs text-muted">Admin Panel</span>
           <span className={cn(
@@ -48,41 +74,67 @@ export default function AdminLayout() {
             {repo.mode === 'demo' ? 'Demo data' : 'Connected to Supabase'}
           </span>
         </div>
-
-        <nav className="px-3 py-2 lg:py-0 space-y-1 flex-1">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.end}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium',
-                  isActive ? 'bg-primary text-primary-fg' : 'text-muted hover:bg-bg hover:text-ink',
-                )
-              }
-            >
-              <l.icon className="h-4 w-4" />
-              {l.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-border">
-          <div className="text-xs text-muted truncate mb-2">{user?.email}</div>
-          <button
-            onClick={async () => { await signOut(); nav('/admin/login'); }}
-            className="btn-outline btn-sm w-full"
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
-        </div>
+        <NavList />
+        <UserPanel email={user?.email} onSignOut={async () => { await signOut(); nav('/admin/login'); }} />
       </aside>
 
-      <main className="p-4 sm:p-6 lg:p-10">
+      <main className="p-3 sm:p-5 lg:p-8">
         <Outlet />
       </main>
+    </div>
+  );
+}
+
+function DrawerHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="flex items-center justify-between p-4 border-b border-border">
+      <div>
+        <Link to="/" className="font-display text-lg leading-tight block">{site.name}</Link>
+        <span className="text-xs text-muted">Admin Panel</span>
+        <span className={cn(
+          'mt-2 inline-block badge',
+          repo.mode === 'demo' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900',
+        )}>
+          {repo.mode === 'demo' ? 'Demo' : 'Live'}
+        </span>
+      </div>
+      <button onClick={onClose} aria-label="Close menu" className="text-muted hover:text-ink">
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  );
+}
+
+function NavList() {
+  return (
+    <nav className="px-3 py-3 space-y-1 flex-1 overflow-y-auto">
+      {links.map((l) => (
+        <NavLink
+          key={l.to}
+          to={l.to}
+          end={l.end}
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium',
+              isActive ? 'bg-primary text-primary-fg' : 'text-muted hover:bg-bg hover:text-ink',
+            )
+          }
+        >
+          <l.icon className="h-4 w-4" />
+          {l.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+function UserPanel({ email, onSignOut }: { email?: string; onSignOut: () => void }) {
+  return (
+    <div className="p-4 border-t border-border">
+      <div className="text-xs text-muted truncate mb-2">{email}</div>
+      <button onClick={onSignOut} className="btn-outline btn-sm w-full">
+        <LogOut className="h-4 w-4" /> Sign out
+      </button>
     </div>
   );
 }

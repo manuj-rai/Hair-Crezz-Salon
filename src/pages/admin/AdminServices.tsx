@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
 import type { Service, ServiceCategory } from '../../types/db';
 import { inr } from '../../lib/utils';
+import { Modal, useConfirm } from './ui';
 
 type Editing = (Partial<Service> & { name: string; price: number; duration_min: number; category: string }) | null;
 
@@ -12,6 +13,10 @@ export default function AdminServices() {
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Editing>(null);
+  const [q, setQ] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const { confirm, dialog } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -39,18 +44,65 @@ export default function AdminServices() {
     } catch { toast.error('Could not save'); }
   }
 
-  async function del(s: Service) {
-    if (!confirm(`Delete "${s.name}"?`)) return;
-    try { await repo.deleteService(s.id); toast.success('Deleted'); load(); }
-    catch { toast.error('Could not delete'); }
+  function askDelete(s: Service) {
+    confirm({
+      title: 'Delete service?',
+      message: `Remove "${s.name}" from the menu? Existing bookings keep this service name on file.`,
+      destructive: true,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await repo.deleteService(s.id);
+          toast.success('Deleted');
+          load();
+        } catch { toast.error('Could not delete'); }
+      },
+    });
   }
+
+  async function toggleActive(s: Service) {
+    try {
+      const updated = await repo.upsertService({ ...s, active: !s.active });
+      setItems((xs) => xs.map((x) => (x.id === s.id ? updated : x)));
+    } catch { toast.error('Could not update'); }
+  }
+
+  async function move(s: Service, dir: -1 | 1) {
+    // Swap sort_order with the next/previous service inside the same category.
+    const peers = items
+      .filter((x) => x.category === s.category)
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = peers.findIndex((x) => x.id === s.id);
+    const target = peers[idx + dir];
+    if (!target) return;
+    try {
+      await Promise.all([
+        repo.upsertService({ ...s, sort_order: target.sort_order }),
+        repo.upsertService({ ...target, sort_order: s.sort_order }),
+      ]);
+      load();
+    } catch { toast.error('Could not reorder'); }
+  }
+
+  const filtered = useMemo(() => {
+    return items.filter((s) => {
+      if (activeFilter === 'active' && !s.active) return false;
+      if (activeFilter === 'inactive' && s.active) return false;
+      if (categoryFilter !== 'all' && s.category !== categoryFilter) return false;
+      if (q) {
+        const hay = `${s.name} ${s.category} ${s.description ?? ''}`.toLowerCase();
+        if (!hay.includes(q.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [items, q, activeFilter, categoryFilter]);
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Services</h1>
-          <p className="text-muted mt-1">Add, edit and price the salon menu.</p>
+          <h1 className="font-display text-2xl sm:text-3xl">Services</h1>
+          <p className="text-muted text-sm mt-1">Add, edit and price the salon menu.</p>
         </div>
         <button
           onClick={() => setEditing({ name: '', category: categories[0]?.name ?? '', price: 0, duration_min: 30, description: '', active: true })}
@@ -60,11 +112,79 @@ export default function AdminServices() {
         </button>
       </header>
 
-      <div className="card overflow-hidden">
+      <div className="flex gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search className="h-4 w-4 absolute top-3.5 left-3 text-muted" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search services" className="input pl-9" />
+        </div>
+        <button
+          onClick={() => setEditing({ name: '', category: categories[0]?.name ?? '', price: 0, duration_min: 30, description: '', active: true })}
+          className="btn-primary lg:hidden shrink-0"
+          aria-label="Add service"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex gap-1.5 mb-4">
+        <select className="input w-full py-1.5 text-sm" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+          <option value="all">All categories</option>
+          {categories.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
+        <select className="input w-32 py-1.5 text-sm shrink-0" value={activeFilter} onChange={(e) => setActiveFilter(e.target.value as typeof activeFilter)}>
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="lg:hidden space-y-2">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-20 shimmer-bg animate-shimmer" />)
+        ) : filtered.length === 0 ? (
+          <div className="card p-12 text-center text-muted text-sm">No services match.</div>
+        ) : filtered.map((s) => (
+          <div key={s.id} className={'card p-3 ' + (s.active ? '' : 'opacity-60')}>
+            <div className="flex items-start gap-3">
+              <div className="flex flex-col">
+                <button className="h-7 w-7 rounded-md border border-border grid place-items-center text-muted hover:text-ink hover:bg-bg/60" onClick={() => move(s, -1)} aria-label="Move up">
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button className="h-7 w-7 rounded-md border border-border grid place-items-center text-muted hover:text-ink hover:bg-bg/60 mt-1" onClick={() => move(s, 1)} aria-label="Move down">
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm truncate">{s.name}</div>
+                    <div className="text-[11px] text-muted">{s.category} · {s.duration_min}m</div>
+                  </div>
+                  <div className="font-semibold text-sm shrink-0">{inr(s.price)}</div>
+                </div>
+                {s.description && <div className="text-xs text-muted mt-1 line-clamp-2">{s.description}</div>}
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                  <button onClick={() => toggleActive(s)} className="flex items-center gap-1.5 text-xs text-muted">
+                    <Toggle on={s.active} /> {s.active ? 'Active' : 'Hidden'}
+                  </button>
+                  <div className="flex gap-1">
+                    <button className="h-8 w-8 rounded-md hover:bg-bg/60 grid place-items-center" onClick={() => setEditing(s)} aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+                    <button className="h-8 w-8 rounded-md hover:bg-red-50 text-red-600 grid place-items-center" onClick={() => askDelete(s)} aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden lg:block card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[700px]">
+          <table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
+                <th className="text-left py-3 px-4 font-medium w-10">Order</th>
                 <th className="text-left py-3 px-4 font-medium">Service</th>
                 <th className="text-left py-3 px-4 font-medium">Category</th>
                 <th className="text-right py-3 px-4 font-medium">Duration</th>
@@ -76,27 +196,37 @@ export default function AdminServices() {
             <tbody>
               {loading ? (
                 Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="border-t border-border"><td colSpan={6} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
+                  <tr key={i} className="border-t border-border"><td colSpan={7} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
                 ))
-              ) : items.length === 0 ? (
-                <tr><td colSpan={6} className="text-center text-muted py-12">No services yet. Add your first one.</td></tr>
-              ) : items.map((s) => (
-                <tr key={s.id} className="border-t border-border">
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={7} className="text-center text-muted py-12">No services match.</td></tr>
+              ) : filtered.map((s) => (
+                <tr key={s.id} className="border-t border-border hover:bg-bg/40">
+                  <td className="py-2 px-2 text-center">
+                    <div className="inline-flex flex-col gap-0.5">
+                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(s, -1)} title="Move up">
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(s, 1)} title="Move down">
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
                   <td className="py-3 px-4">
                     <div className="font-medium">{s.name}</div>
-                    {s.description && <div className="text-xs text-muted">{s.description}</div>}
+                    {s.description && <div className="text-xs text-muted line-clamp-1">{s.description}</div>}
                   </td>
                   <td className="py-3 px-4 text-muted">{s.category}</td>
                   <td className="py-3 px-4 text-right">{s.duration_min}m</td>
                   <td className="py-3 px-4 text-right font-medium">{inr(s.price)}</td>
                   <td className="py-3 px-4 text-center">
-                    <span className={'badge ' + (s.active ? 'bg-emerald-100 text-emerald-900' : 'bg-zinc-200 text-zinc-700')}>
-                      {s.active ? 'Yes' : 'No'}
-                    </span>
+                    <button onClick={() => toggleActive(s)} title="Toggle active">
+                      <Toggle on={s.active} />
+                    </button>
                   </td>
                   <td className="py-3 px-4 text-right whitespace-nowrap">
                     <button className="btn-ghost btn-sm" onClick={() => setEditing(s)}><Pencil className="h-4 w-4" /></button>
-                    <button className="btn-ghost btn-sm text-red-600" onClick={() => del(s)}><Trash2 className="h-4 w-4" /></button>
+                    <button className="btn-ghost btn-sm text-red-600" onClick={() => askDelete(s)}><Trash2 className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
@@ -146,17 +276,26 @@ export default function AdminServices() {
           </div>
         </Modal>
       )}
+
+      {dialog}
     </div>
   );
 }
 
-function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+function Toggle({ on }: { on: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-xl mb-4">{title}</h3>
-        {children}
-      </div>
-    </div>
+    <span
+      className={
+        'inline-flex h-5 w-9 items-center rounded-full transition ' +
+        (on ? 'bg-emerald-500' : 'bg-zinc-300')
+      }
+    >
+      <span
+        className={
+          'h-4 w-4 rounded-full bg-white shadow-sm transition-transform ' +
+          (on ? 'translate-x-4' : 'translate-x-0.5')
+        }
+      />
+    </span>
   );
 }

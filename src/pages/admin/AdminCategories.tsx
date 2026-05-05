@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
 import type { ServiceCategory } from '../../types/db';
+import { Modal, useConfirm } from './ui';
 
 type Editing = (Partial<ServiceCategory> & { name: string }) | null;
 
@@ -10,6 +11,8 @@ export default function AdminCategories() {
   const [items, setItems] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Editing>(null);
+  const [q, setQ] = useState('');
+  const { confirm, dialog } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -35,24 +38,57 @@ export default function AdminCategories() {
     }
   }
 
-  async function del(category: ServiceCategory) {
-    if (!confirm(`Delete "${category.name}"? Services using this category must be moved first.`)) return;
-    try {
-      await repo.deleteServiceCategory(category.id);
-      toast.success('Deleted');
-      load();
-    } catch (e) {
-      console.error(e);
-      toast.error('Move services out of this category before deleting it');
-    }
+  function askDelete(category: ServiceCategory) {
+    confirm({
+      title: 'Delete category?',
+      message: `Remove "${category.name}"? Move any services using this category first, otherwise the delete will fail.`,
+      destructive: true,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await repo.deleteServiceCategory(category.id);
+          toast.success('Deleted');
+          load();
+        } catch (e) {
+          console.error(e);
+          toast.error('Move services out of this category before deleting it');
+        }
+      },
+    });
   }
+
+  async function toggleActive(c: ServiceCategory) {
+    try {
+      await repo.upsertServiceCategory({ ...c, active: !c.active });
+      load();
+    } catch { toast.error('Could not update'); }
+  }
+
+  async function move(c: ServiceCategory, dir: -1 | 1) {
+    const sorted = [...items].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex((x) => x.id === c.id);
+    const target = sorted[idx + dir];
+    if (!target) return;
+    try {
+      await Promise.all([
+        repo.upsertServiceCategory({ ...c, sort_order: target.sort_order }),
+        repo.upsertServiceCategory({ ...target, sort_order: c.sort_order }),
+      ]);
+      load();
+    } catch { toast.error('Could not reorder'); }
+  }
+
+  const filtered = useMemo(() => {
+    if (!q) return items;
+    return items.filter((c) => c.name.toLowerCase().includes(q.toLowerCase()));
+  }, [items, q]);
 
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between">
+      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Categories</h1>
-          <p className="text-muted mt-1">Manage service groups used across pricing and booking.</p>
+          <h1 className="font-display text-2xl sm:text-3xl">Categories</h1>
+          <p className="text-muted text-sm mt-1">Manage service groups used across pricing and booking.</p>
         </div>
         <button
           onClick={() => setEditing({ name: '', active: true, sort_order: items.length + 1 })}
@@ -62,13 +98,58 @@ export default function AdminCategories() {
         </button>
       </header>
 
-      <div className="card overflow-hidden">
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <Search className="h-4 w-4 absolute top-3.5 left-3 text-muted" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search categories" className="input pl-9" />
+        </div>
+        <button
+          onClick={() => setEditing({ name: '', active: true, sort_order: items.length + 1 })}
+          className="btn-primary lg:hidden shrink-0"
+          aria-label="Add category"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="lg:hidden space-y-2">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-14 shimmer-bg animate-shimmer" />)
+        ) : filtered.length === 0 ? (
+          <div className="card p-12 text-center text-muted text-sm">No categories match.</div>
+        ) : filtered.map((category) => (
+          <div key={category.id} className={'card p-3 flex items-center gap-3 ' + (category.active ? '' : 'opacity-60')}>
+            <div className="flex flex-col">
+              <button className="h-7 w-7 rounded-md border border-border grid place-items-center text-muted hover:text-ink hover:bg-bg/60" onClick={() => move(category, -1)} aria-label="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button className="h-7 w-7 rounded-md border border-border grid place-items-center text-muted hover:text-ink hover:bg-bg/60 mt-1" onClick={() => move(category, 1)} aria-label="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="font-medium truncate">{category.name}</div>
+              <button onClick={() => toggleActive(category)} className="text-xs text-muted flex items-center gap-1.5 mt-1">
+                <Toggle on={category.active} /> {category.active ? 'Active' : 'Hidden'}
+              </button>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              <button className="h-8 w-8 rounded-md hover:bg-bg/60 grid place-items-center" onClick={() => setEditing(category)} aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+              <button className="h-8 w-8 rounded-md hover:bg-red-50 text-red-600 grid place-items-center" onClick={() => askDelete(category)} aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden lg:block card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm min-w-[560px]">
             <thead>
               <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
+                <th className="text-left py-3 px-4 font-medium w-10">Order</th>
                 <th className="text-left py-3 px-4 font-medium">Category</th>
-                <th className="text-right py-3 px-4 font-medium">Sort</th>
                 <th className="text-center py-3 px-4 font-medium">Active</th>
                 <th></th>
               </tr>
@@ -78,20 +159,29 @@ export default function AdminCategories() {
                 Array.from({ length: 4 }).map((_, i) => (
                   <tr key={i} className="border-t border-border"><td colSpan={4} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
                 ))
-              ) : items.length === 0 ? (
-                <tr><td colSpan={4} className="text-center text-muted py-12">No categories yet.</td></tr>
-              ) : items.map((category) => (
-                <tr key={category.id} className="border-t border-border">
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={4} className="text-center text-muted py-12">No categories match.</td></tr>
+              ) : filtered.map((category) => (
+                <tr key={category.id} className="border-t border-border hover:bg-bg/40">
+                  <td className="py-2 px-2 text-center">
+                    <div className="inline-flex flex-col gap-0.5">
+                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(category, -1)} title="Move up">
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(category, 1)} title="Move down">
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
                   <td className="py-3 px-4 font-medium">{category.name}</td>
-                  <td className="py-3 px-4 text-right">{category.sort_order}</td>
                   <td className="py-3 px-4 text-center">
-                    <span className={'badge ' + (category.active ? 'bg-emerald-100 text-emerald-900' : 'bg-zinc-200 text-zinc-700')}>
-                      {category.active ? 'Yes' : 'No'}
-                    </span>
+                    <button onClick={() => toggleActive(category)}>
+                      <Toggle on={category.active} />
+                    </button>
                   </td>
                   <td className="py-3 px-4 text-right whitespace-nowrap">
                     <button className="btn-ghost btn-sm" onClick={() => setEditing(category)}><Pencil className="h-4 w-4" /></button>
-                    <button className="btn-ghost btn-sm text-red-600" onClick={() => del(category)}><Trash2 className="h-4 w-4" /></button>
+                    <button className="btn-ghost btn-sm text-red-600" onClick={() => askDelete(category)}><Trash2 className="h-4 w-4" /></button>
                   </td>
                 </tr>
               ))}
@@ -107,10 +197,6 @@ export default function AdminCategories() {
               <label className="label">Name</label>
               <input className="input" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
             </div>
-            <div>
-              <label className="label">Sort order</label>
-              <input className="input" type="number" value={editing.sort_order ?? 0} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })} />
-            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={editing.active ?? true} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />
               Show this category
@@ -122,17 +208,16 @@ export default function AdminCategories() {
           </div>
         </Modal>
       )}
+
+      {dialog}
     </div>
   );
 }
 
-function Modal({ children, onClose, title }: { children: React.ReactNode; onClose: () => void; title: string }) {
+function Toggle({ on }: { on: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="card w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-xl mb-4">{title}</h3>
-        {children}
-      </div>
-    </div>
+    <span className={'inline-flex h-5 w-9 items-center rounded-full transition ' + (on ? 'bg-emerald-500' : 'bg-zinc-300')}>
+      <span className={'h-4 w-4 rounded-full bg-white shadow-sm transition-transform ' + (on ? 'translate-x-4' : 'translate-x-0.5')} />
+    </span>
   );
 }

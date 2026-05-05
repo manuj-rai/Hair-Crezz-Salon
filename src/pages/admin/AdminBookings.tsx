@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Plus, RotateCcw, Search, X } from 'lucide-react';
+import { Check, ChevronRight, Clock, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
 import type { Booking, BookingStatus, Service, Stylist } from '../../types/db';
@@ -7,19 +7,8 @@ import { fmtTime12, inr, isoDate } from '../../lib/utils';
 import { cn } from '../../lib/utils';
 import { generateSlots, type Slot } from '../../lib/slots';
 import { site } from '../../config/site';
-import { SERVICES_NOTE_PREFIX } from '../BookingPage';
-
-// Multi-service bookings are stored with a "Services: A + B + C" prefix in
-// the notes field (the schema only carries one service_id). Split it back out
-// for display.
-function parseBookingNotes(notes: string | null) {
-  if (!notes) return { services: null as string | null, userNotes: null as string | null };
-  if (!notes.startsWith(SERVICES_NOTE_PREFIX)) return { services: null, userNotes: notes };
-  const rest = notes.slice(SERVICES_NOTE_PREFIX.length);
-  const splitIdx = rest.indexOf('\n\n');
-  if (splitIdx === -1) return { services: rest.trim(), userNotes: null };
-  return { services: rest.slice(0, splitIdx).trim(), userNotes: rest.slice(splitIdx + 2).trim() || null };
-}
+import { composeBookingNotes, parseBookingNotes } from '../../lib/booking';
+import { Modal, StatusBadge, useConfirm } from './ui';
 
 const statusFilters: ({ value: BookingStatus | 'all'; label: string })[] = [
   { value: 'all', label: 'All' },
@@ -29,14 +18,47 @@ const statusFilters: ({ value: BookingStatus | 'all'; label: string })[] = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
+type RangeKey = 'today' | 'week' | 'month' | 'all' | 'custom';
+const ranges: { value: RangeKey; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'all', label: 'All time' },
+  { value: 'custom', label: 'Custom' },
+];
+
+function rangeBounds(r: RangeKey): { from: string | null; to: string | null } {
+  const today = new Date();
+  if (r === 'today') return { from: isoDate(today), to: isoDate(today) };
+  if (r === 'week') {
+    const start = new Date(today);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return { from: isoDate(start), to: isoDate(end) };
+  }
+  if (r === 'month') {
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    return { from: isoDate(start), to: isoDate(end) };
+  }
+  return { from: null, to: null };
+}
+
 export default function AdminBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<BookingStatus | 'all'>('all');
+  const [range, setRange] = useState<RangeKey>('all');
+  const [customFrom, setCustomFrom] = useState<string>(isoDate(new Date()));
+  const [customTo, setCustomTo] = useState<string>(isoDate(new Date()));
   const [q, setQ] = useState('');
   const [adding, setAdding] = useState(false);
+  const [detail, setDetail] = useState<Booking | null>(null);
+
+  const { confirm, dialog } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -53,16 +75,31 @@ export default function AdminBookings() {
   }
   useEffect(() => { load(); }, []);
 
+  const { from, to } = useMemo(() => {
+    if (range === 'custom') return { from: customFrom, to: customTo };
+    return rangeBounds(range);
+  }, [range, customFrom, customTo]);
+
   const filtered = useMemo(() => {
     return bookings.filter((b) => {
       if (filter !== 'all' && b.status !== filter) return false;
+      if (from && b.date < from) return false;
+      if (to && b.date > to) return false;
       if (q) {
         const hay = `${b.customer_name} ${b.phone} ${b.email ?? ''}`.toLowerCase();
         if (!hay.includes(q.toLowerCase())) return false;
       }
       return true;
     });
-  }, [bookings, filter, q]);
+  }, [bookings, filter, q, from, to]);
+
+  const totals = useMemo(() => {
+    const counted = filtered.filter((b) => b.status !== 'cancelled');
+    return {
+      count: filtered.length,
+      revenue: counted.reduce((s, b) => s + b.price, 0),
+    };
+  }, [filtered]);
 
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? '—';
   const stylistName = (id: string | null) => (id ? stylists.find((s) => s.id === id)?.name ?? '—' : 'Any');
@@ -71,6 +108,7 @@ export default function AdminBookings() {
     try {
       await repo.updateBookingStatus(b.id, status);
       setBookings((xs) => xs.map((x) => (x.id === b.id ? { ...x, status } : x)));
+      if (detail?.id === b.id) setDetail({ ...b, status });
       toast.success(`Booking ${status}`);
     } catch (e) {
       console.error(e);
@@ -78,135 +116,444 @@ export default function AdminBookings() {
     }
   }
 
+  function askDelete(b: Booking) {
+    confirm({
+      title: 'Delete booking?',
+      message: `This permanently removes ${b.customer_name}'s appointment on ${b.date}. This can't be undone.`,
+      destructive: true,
+      confirmLabel: 'Delete',
+      onConfirm: async () => {
+        try {
+          await repo.deleteBooking(b.id);
+          setBookings((xs) => xs.filter((x) => x.id !== b.id));
+          if (detail?.id === b.id) setDetail(null);
+          toast.success('Booking deleted');
+        } catch (e) {
+          console.error(e);
+          toast.error('Could not delete booking');
+        }
+      },
+    });
+  }
+
+  const pendingCount = bookings.filter((b) => b.status === 'pending').length;
   return (
     <div>
-      <header className="mb-6 flex items-center justify-between gap-4">
+      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl">Bookings</h1>
-          <p className="text-muted mt-1">Confirm, cancel and complete appointments.</p>
+          <h1 className="font-display text-2xl sm:text-3xl">Bookings</h1>
+          <p className="text-muted text-sm mt-1">Confirm, cancel and complete appointments.</p>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> Add booking
         </button>
       </header>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-5">
+        <SummaryCard label="Showing" value={totals.count} sub={`of ${bookings.length}`} />
+        <SummaryCard label="Revenue" value={inr(totals.revenue)} sub="excl. cancelled" />
+        <SummaryCard
+          label="Pending"
+          value={pendingCount}
+          sub="needs action"
+          accent={pendingCount > 0}
+        />
+      </div>
+
+      <div className="flex gap-2 mb-3">
         <div className="relative flex-1">
           <Search className="h-4 w-4 absolute top-3.5 left-3 text-muted" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name, phone or email"
+            placeholder="Search name, phone, email"
             className="input pl-9"
           />
         </div>
-        <div className="flex gap-1 overflow-x-auto">
-          {statusFilters.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setFilter(s.value)}
-              className={cn(
-                'btn-sm rounded-full px-4 py-2 text-xs border whitespace-nowrap',
-                filter === s.value ? 'bg-primary text-primary-fg border-primary' : 'border-border text-muted hover:text-ink',
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-          <button onClick={load} className="btn-outline btn-sm" title="Refresh"><RotateCcw className="h-4 w-4" /></button>
-        </div>
+        <button onClick={() => setAdding(true)} className="btn-primary lg:hidden shrink-0" aria-label="Add booking">
+          <Plus className="h-4 w-4" />
+        </button>
+        <button onClick={load} className="btn-outline shrink-0" title="Refresh"><RotateCcw className="h-4 w-4" /></button>
       </div>
 
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[860px]">
-            <thead>
-              <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
-                <th className="text-left py-3 px-4 font-medium">Customer</th>
-                <th className="text-left py-3 px-4 font-medium">Service</th>
-                <th className="text-left py-3 px-4 font-medium">Stylist</th>
-                <th className="text-left py-3 px-4 font-medium">When</th>
-                <th className="text-left py-3 px-4 font-medium">Status</th>
-                <th className="text-right py-3 px-4 font-medium">Amount</th>
-                <th className="text-right py-3 px-4 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-t border-border">
-                    <td colSpan={7} className="p-4">
-                      <div className="h-8 rounded shimmer-bg animate-shimmer" />
-                    </td>
-                  </tr>
-                ))
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center text-muted py-12">No bookings match these filters.</td></tr>
-              ) : filtered.map((b) => {
-                const parsed = parseBookingNotes(b.notes);
-                return (
-                <tr key={b.id} className="border-t border-border align-top">
-                  <td className="py-3 px-4">
-                    <div className="font-medium">{b.customer_name}</div>
-                    <div className="text-xs text-muted">{b.phone}</div>
-                    {parsed.userNotes && <div className="text-xs text-muted italic mt-1">"{parsed.userNotes}"</div>}
+      <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-1 mb-2">
+        {ranges.map((r) => (
+          <button
+            key={r.value}
+            onClick={() => setRange(r.value)}
+            className={cn(
+              'rounded-full px-3 py-1.5 text-xs border whitespace-nowrap shrink-0 transition',
+              range === r.value ? 'bg-primary text-primary-fg border-primary' : 'border-border text-muted hover:text-ink',
+            )}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {range === 'custom' && (
+        <div className="flex items-center gap-2 mb-3 text-sm">
+          <span className="text-xs text-muted">From</span>
+          <input type="date" className="input py-1.5 text-sm w-auto" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+          <span className="text-xs text-muted">To</span>
+          <input type="date" className="input py-1.5 text-sm w-auto" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+        </div>
+      )}
+
+      <div className="flex gap-1 overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-1 mb-3 sm:mb-4">
+        {statusFilters.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => setFilter(s.value)}
+            className={cn(
+              'rounded-full px-3 py-1.5 text-xs border whitespace-nowrap shrink-0 transition',
+              filter === s.value ? 'bg-ink text-bg border-ink' : 'border-border text-muted hover:text-ink',
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile card list */}
+      <div className="lg:hidden space-y-2">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <div key={i} className="card h-24 shimmer-bg animate-shimmer" />)
+        ) : filtered.length === 0 ? (
+          <div className="card p-12 text-center text-muted text-sm">No bookings match these filters.</div>
+        ) : filtered.map((b) => {
+          const parsed = parseBookingNotes(b.notes);
+          return (
+            <button
+              key={b.id}
+              onClick={() => setDetail(b)}
+              className="w-full card p-3 text-left hover:border-ink transition"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium truncate">{b.customer_name}</span>
+                    <StatusBadge status={b.status} />
+                  </div>
+                  <div className="text-xs text-muted mt-0.5 truncate">
+                    {parsed.services ?? serviceName(b.service_id)}
+                  </div>
+                  <div className="text-xs text-muted mt-1.5 flex items-center gap-2">
+                    <span>{new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span>·</span>
+                    <span>{fmtTime12(b.time)}</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-semibold">{inr(b.price)}</div>
+                  <ChevronRight className="h-4 w-4 text-muted ml-auto mt-1" />
+                </div>
+              </div>
+              {(b.status === 'pending' || b.status === 'confirmed') && (
+                <div className="flex gap-1.5 mt-2 pt-2 border-t border-border" onClick={(e) => e.stopPropagation()}>
+                  {b.status !== 'confirmed' && (
+                    <button
+                      onClick={() => setStatus(b, 'confirmed')}
+                      className="flex-1 btn-outline btn-sm !py-1.5 text-emerald-700 border-emerald-200 bg-emerald-50/50"
+                    >
+                      <Check className="h-3.5 w-3.5" /> Confirm
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setStatus(b, 'cancelled')}
+                    className="flex-1 btn-outline btn-sm !py-1.5 text-red-600 border-red-200 bg-red-50/40"
+                  >
+                    <X className="h-3.5 w-3.5" /> Cancel
+                  </button>
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden lg:block card overflow-hidden">
+        <table className="w-full text-sm table-fixed">
+          <colgroup>
+            <col className="w-[22%]" />
+            <col className="w-[28%]" />
+            {site.sections.stylists && <col className="w-[14%]" />}
+            <col className="w-[14%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            <col className="w-[10%]" />
+          </colgroup>
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-muted bg-bg/60 border-b border-border">
+              <th className="text-left py-2.5 px-3 font-semibold">Customer</th>
+              <th className="text-left py-2.5 px-3 font-semibold">Service</th>
+              {site.sections.stylists && <th className="text-left py-2.5 px-3 font-semibold">Stylist</th>}
+              <th className="text-left py-2.5 px-3 font-semibold">When</th>
+              <th className="text-left py-2.5 px-3 font-semibold">Status</th>
+              <th className="text-right py-2.5 px-3 font-semibold">Amount</th>
+              <th className="text-right py-2.5 px-3 font-semibold sr-only">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={7} className="p-3">
+                    <div className="h-7 rounded shimmer-bg animate-shimmer" />
                   </td>
-                  <td className="py-3 px-4">{parsed.services ?? serviceName(b.service_id)}</td>
-                  <td className="py-3 px-4">{stylistName(b.stylist_id)}</td>
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    {new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}<br />
-                    <span className="text-xs text-muted">{fmtTime12(b.time)}</span>
+                </tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={7} className="text-center text-muted py-12">No bookings match these filters.</td></tr>
+            ) : filtered.map((b) => {
+              const parsed = parseBookingNotes(b.notes);
+              const serviceText = parsed.services ?? serviceName(b.service_id);
+              return (
+                <tr
+                  key={b.id}
+                  className="group hover:bg-bg/40 cursor-pointer transition-colors"
+                  onClick={() => setDetail(b)}
+                >
+                  <td className="py-2.5 px-3">
+                    <div className="font-medium truncate">{b.customer_name}</div>
+                    <div className="text-xs text-muted truncate">{b.phone}</div>
                   </td>
-                  <td className="py-3 px-4"><StatusBadge status={b.status} /></td>
-                  <td className="py-3 px-4 text-right font-medium">{inr(b.price)}</td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="inline-flex gap-1">
+                  <td className="py-2.5 px-3">
+                    <div className="truncate" title={serviceText}>{serviceText}</div>
+                    {parsed.userNotes && (
+                      <div className="text-xs text-muted italic truncate" title={parsed.userNotes}>"{parsed.userNotes}"</div>
+                    )}
+                  </td>
+                  {site.sections.stylists && (
+                    <td className="py-2.5 px-3 text-muted truncate">{stylistName(b.stylist_id)}</td>
+                  )}
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    <div>{new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                    <div className="text-xs text-muted">{fmtTime12(b.time)}</div>
+                  </td>
+                  <td className="py-2.5 px-3"><StatusBadge status={b.status} /></td>
+                  <td className="py-2.5 px-3 text-right font-medium tabular-nums">{inr(b.price)}</td>
+                  <td className="py-2.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                       {b.status !== 'confirmed' && b.status !== 'completed' && (
-                        <button onClick={() => setStatus(b, 'confirmed')} title="Confirm" className="btn-ghost btn-sm">
-                          <Check className="h-4 w-4 text-emerald-700" />
+                        <button onClick={() => setStatus(b, 'confirmed')} title="Confirm" className="h-7 w-7 rounded-md grid place-items-center hover:bg-emerald-50 text-emerald-700">
+                          <Check className="h-4 w-4" />
                         </button>
                       )}
-                      {b.status !== 'completed' && (
-                        <button onClick={() => setStatus(b, 'completed')} title="Mark complete" className="btn-ghost btn-sm">
-                          <Check className="h-4 w-4 text-blue-700" />
-                          <Check className="h-4 w-4 -ml-2 text-blue-700" />
+                      {b.status !== 'cancelled' && b.status !== 'completed' && (
+                        <button onClick={() => setStatus(b, 'cancelled')} title="Cancel" className="h-7 w-7 rounded-md grid place-items-center hover:bg-red-50 text-red-600">
+                          <X className="h-4 w-4" />
                         </button>
                       )}
-                      {b.status !== 'cancelled' && (
-                        <button onClick={() => setStatus(b, 'cancelled')} title="Cancel" className="btn-ghost btn-sm">
-                          <X className="h-4 w-4 text-red-600" />
-                        </button>
-                      )}
+                      <button onClick={() => setDetail(b)} title="Open" className="h-7 w-7 rounded-md grid place-items-center hover:bg-bg text-muted">
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {adding && (
-        <AddBookingModal
+        <BookingFormModal
+          mode="create"
           services={services.filter((s) => s.active)}
           stylists={stylists.filter((s) => s.active)}
           onClose={() => setAdding(false)}
-          onCreated={() => {
+          onSaved={() => {
             setAdding(false);
             load();
           }}
         />
       )}
+
+      {detail && (
+        <BookingDetailPanel
+          booking={detail}
+          services={services}
+          stylists={stylists}
+          onClose={() => setDetail(null)}
+          onSetStatus={(s) => setStatus(detail, s)}
+          onDelete={() => askDelete(detail)}
+          onUpdated={(b) => {
+            setBookings((xs) => xs.map((x) => (x.id === b.id ? b : x)));
+            setDetail(b);
+          }}
+        />
+      )}
+
+      {dialog}
     </div>
   );
 }
 
-type BookingDraft = {
+function SummaryCard({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: string; accent?: boolean }) {
+  return (
+    <div className={cn('card p-2.5 sm:p-4', accent && 'bg-accent/5 border-accent/40')}>
+      <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted leading-tight">{label}</div>
+      <div className="text-base sm:text-2xl font-display mt-0.5 sm:mt-1 leading-tight truncate">{value}</div>
+      {sub && <div className="text-[10px] sm:text-xs text-muted mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Detail panel
+
+function BookingDetailPanel({
+  booking,
+  services,
+  stylists,
+  onClose,
+  onSetStatus,
+  onDelete,
+  onUpdated,
+}: {
+  booking: Booking;
+  services: Service[];
+  stylists: Stylist[];
+  onClose: () => void;
+  onSetStatus: (s: BookingStatus) => void;
+  onDelete: () => void;
+  onUpdated: (b: Booking) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-bg w-full sm:max-w-md h-full overflow-y-auto shadow-xl sm:border-l border-border animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {editing ? (
+          <BookingFormModal
+            mode="edit"
+            booking={booking}
+            services={services}
+            stylists={stylists}
+            inline
+            onClose={() => setEditing(false)}
+            onSaved={(b) => {
+              setEditing(false);
+              if (b) onUpdated(b);
+            }}
+          />
+        ) : (
+          <DetailContent
+            booking={booking}
+            services={services}
+            stylists={stylists}
+            onClose={onClose}
+            onSetStatus={onSetStatus}
+            onDelete={onDelete}
+            onEdit={() => setEditing(true)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DetailContent({
+  booking,
+  services,
+  stylists,
+  onClose,
+  onSetStatus,
+  onDelete,
+  onEdit,
+}: {
+  booking: Booking;
+  services: Service[];
+  stylists: Stylist[];
+  onClose: () => void;
+  onSetStatus: (s: BookingStatus) => void;
+  onDelete: () => void;
+  onEdit: () => void;
+}) {
+  const parsed = parseBookingNotes(booking.notes);
+  const stylist = stylists.find((s) => s.id === booking.stylist_id);
+  const primary = services.find((s) => s.id === booking.service_id);
+  return (
+    <>
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-10">
+        <div>
+          <div className="font-display text-lg">{booking.customer_name}</div>
+          <div className="text-xs text-muted">{booking.phone}</div>
+        </div>
+        <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-5">
+        <div className="flex items-center gap-2">
+          <StatusBadge status={booking.status} />
+          <span className="text-xs text-muted">Created {new Date(booking.created_at).toLocaleString()}</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {(['pending', 'confirmed', 'completed', 'cancelled'] as BookingStatus[])
+            .filter((s) => s !== booking.status)
+            .map((s) => (
+              <button
+                key={s}
+                onClick={() => onSetStatus(s)}
+                className="btn-outline btn-sm"
+              >
+                Mark {s.replace('_', ' ')}
+              </button>
+            ))}
+        </div>
+
+        <DetailRow label="Service" value={parsed.services ?? primary?.name ?? '—'} />
+        <DetailRow
+          label="When"
+          value={`${new Date(booking.date).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          })} · ${fmtTime12(booking.time)}`}
+        />
+        <DetailRow label="Duration / Price" value={`${booking.duration_min} min · ${inr(booking.price)}`} />
+        {site.sections.stylists && (
+          <DetailRow label="Stylist" value={stylist ? `${stylist.name} (${stylist.role})` : 'Any available'} />
+        )}
+        <DetailRow label="Email" value={booking.email || '—'} />
+        {parsed.userNotes && <DetailRow label="Customer notes" value={parsed.userNotes} multiline />}
+
+        <div className="pt-3 border-t border-border flex flex-col gap-2">
+          <button className="btn-primary" onClick={onEdit}>
+            Edit booking
+          </button>
+          <button className="btn-outline text-red-600 hover:bg-red-50" onClick={onDelete}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function DetailRow({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-wider text-muted font-medium mb-0.5">{label}</div>
+      <div className={multiline ? 'text-sm whitespace-pre-wrap' : 'text-sm'}>{value}</div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Form modal
+
+type Draft = {
   customer_name: string;
   phone: string;
   email: string;
-  service_id: string;
+  service_ids: string[];
   stylist_id: string;
   date: string;
   time: string;
@@ -214,42 +561,65 @@ type BookingDraft = {
   status: BookingStatus;
 };
 
-function AddBookingModal({
+function BookingFormModal({
+  mode,
+  booking,
   services,
   stylists,
   onClose,
-  onCreated,
+  onSaved,
+  inline,
 }: {
+  mode: 'create' | 'edit';
+  booking?: Booking;
   services: Service[];
   stylists: Stylist[];
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: (b?: Booking) => void;
+  inline?: boolean;
 }) {
-  const [draft, setDraft] = useState<BookingDraft>({
-    customer_name: '',
-    phone: '',
-    email: '',
-    service_id: services[0]?.id ?? '',
-    stylist_id: 'any',
-    date: isoDate(new Date()),
-    time: '',
-    notes: '',
-    status: 'confirmed',
-  });
+  const initialServiceIds = useMemo(() => {
+    if (!booking) return services[0] ? [services[0].id] : [];
+    const parsed = parseBookingNotes(booking.notes);
+    if (parsed.services) {
+      const names = parsed.services.split(' + ').map((n) => n.trim());
+      const ids = names.map((n) => services.find((s) => s.name === n)?.id).filter((id): id is string => Boolean(id));
+      return ids.length === names.length ? ids : [booking.service_id];
+    }
+    return [booking.service_id];
+  }, [booking, services]);
+
+  const [draft, setDraft] = useState<Draft>(() => ({
+    customer_name: booking?.customer_name ?? '',
+    phone: booking?.phone ?? '',
+    email: booking?.email ?? '',
+    service_ids: initialServiceIds,
+    stylist_id: booking?.stylist_id ?? 'any',
+    date: booking?.date ?? isoDate(new Date()),
+    time: booking?.time ?? '',
+    notes: booking ? (parseBookingNotes(booking.notes).userNotes ?? '') : '',
+    status: booking?.status ?? 'confirmed',
+  }));
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const service = services.find((s) => s.id === draft.service_id) ?? null;
+  const selected = useMemo(
+    () => draft.service_ids
+      .map((id) => services.find((s) => s.id === id))
+      .filter((s): s is Service => Boolean(s)),
+    [services, draft.service_ids],
+  );
+  const totalDuration = selected.reduce((s, x) => s + x.duration_min, 0);
+  const totalPrice = selected.reduce((s, x) => s + x.price, 0);
   const stylistId = site.sections.stylists && draft.stylist_id !== 'any' ? draft.stylist_id : null;
 
   useEffect(() => {
-    if (!service || !draft.date) {
+    if (selected.length === 0 || !draft.date) {
       setSlots([]);
       return;
     }
     setLoadingSlots(true);
-    setDraft((current) => ({ ...current, time: '' }));
     const date = new Date(`${draft.date}T00:00:00`);
     Promise.all([
       repo.listHours(),
@@ -258,136 +628,207 @@ function AddBookingModal({
     ])
       .then(([hours, booked, blocked]) => {
         const hour = hours.find((h) => h.day_of_week === date.getDay());
-        setSlots(generateSlots({ date, hour, durationMin: service.duration_min, bookings: booked, blocked, now: new Date(0) }));
+        const filtered = mode === 'edit' && booking
+          ? booked.filter((b) => !(b.time === booking.time && b.duration_min === booking.duration_min))
+          : booked;
+        setSlots(generateSlots({ date, hour, durationMin: totalDuration, bookings: filtered, blocked, now: new Date(0) }));
       })
       .catch(() => {
         setSlots([]);
         toast.error('Could not load available times');
       })
       .finally(() => setLoadingSlots(false));
-  }, [draft.date, draft.service_id, service, stylistId]);
+  }, [draft.date, draft.service_ids, totalDuration, stylistId, mode, booking]);
+
+  function toggleService(id: string) {
+    setDraft((d) => ({
+      ...d,
+      service_ids: d.service_ids.includes(id) ? d.service_ids.filter((x) => x !== id) : [...d.service_ids, id],
+      time: '',
+    }));
+  }
 
   async function save() {
-    if (!service) {
-      toast.error('Select a service');
+    if (selected.length === 0) {
+      toast.error('Select at least one service');
       return;
     }
     if (!draft.customer_name.trim() || !draft.phone.trim() || !draft.date || !draft.time) {
       toast.error('Fill customer, phone, date and time');
       return;
     }
-
     setSaving(true);
     try {
-      await repo.createBooking({
-        customer_name: draft.customer_name.trim(),
-        phone: draft.phone.trim(),
-        email: draft.email.trim() || null,
-        service_id: service.id,
-        stylist_id: stylistId,
-        date: draft.date,
-        time: draft.time,
-        duration_min: service.duration_min,
-        price: service.price,
-        notes: draft.notes.trim() || null,
-        status: draft.status,
-      });
-      toast.success('Booking added');
-      onCreated();
+      const composedNotes = composeBookingNotes(selected.map((s) => s.name), draft.notes);
+      if (mode === 'create') {
+        await repo.createBooking({
+          customer_name: draft.customer_name.trim(),
+          phone: draft.phone.trim(),
+          email: draft.email.trim() || null,
+          service_id: selected[0].id,
+          stylist_id: stylistId,
+          date: draft.date,
+          time: draft.time,
+          duration_min: totalDuration,
+          price: totalPrice,
+          notes: composedNotes,
+          status: draft.status,
+        });
+        toast.success('Booking added');
+        onSaved();
+      } else if (booking) {
+        const updated = await repo.updateBooking(booking.id, {
+          customer_name: draft.customer_name.trim(),
+          phone: draft.phone.trim(),
+          email: draft.email.trim() || null,
+          service_id: selected[0].id,
+          stylist_id: stylistId,
+          date: draft.date,
+          time: draft.time,
+          duration_min: totalDuration,
+          price: totalPrice,
+          notes: composedNotes,
+          status: draft.status,
+        });
+        toast.success('Booking updated');
+        onSaved(updated);
+      }
     } catch (e) {
       console.error(e);
-      toast.error('Could not add booking');
+      toast.error('Could not save booking');
     } finally {
       setSaving(false);
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-primary/40 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="card w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-display text-xl mb-4">Add booking</h3>
+  const cats = Array.from(new Set(services.map((s) => s.category)));
+  const body = (
+    <div className="space-y-4">
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="label">Customer</label>
+          <input className="input" value={draft.customer_name} onChange={(e) => setDraft({ ...draft, customer_name: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Phone</label>
+          <input className="input" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input className="input" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Status</label>
+          <select className="input" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as BookingStatus })}>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="no_show">No-show</option>
+          </select>
+        </div>
+      </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="label">Customer name</label>
-            <input className="input" value={draft.customer_name} onChange={(e) => setDraft({ ...draft, customer_name: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Phone</label>
-            <input className="input" value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Email optional</label>
-            <input className="input" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Status</label>
-            <select className="input" value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as BookingStatus })}>
-              <option value="confirmed">Confirmed</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-          <div>
-            <label className="label">Service</label>
-            <select className="input" value={draft.service_id} onChange={(e) => setDraft({ ...draft, service_id: e.target.value })}>
-              <option value="" disabled>Select service</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} - {inr(s.price)}</option>
-              ))}
-            </select>
-          </div>
-          {site.sections.stylists && (
-            <div>
-              <label className="label">Stylist</label>
-              <select className="input" value={draft.stylist_id} onChange={(e) => setDraft({ ...draft, stylist_id: e.target.value })}>
-                <option value="any">Any stylist</option>
-                {stylists.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+      <div>
+        <label className="label">Services <span className="text-muted text-xs">(pick one or more)</span></label>
+        <div className="rounded-lg border border-border divide-y divide-border max-h-56 overflow-y-auto">
+          {cats.map((c) => (
+            <div key={c}>
+              <div className="px-3 py-1.5 text-[11px] uppercase tracking-wider font-semibold text-muted bg-bg">{c}</div>
+              {services.filter((s) => s.category === c).map((s) => {
+                const sel = draft.service_ids.includes(s.id);
+                return (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => toggleService(s.id)}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition',
+                      sel ? 'bg-accent/10' : 'hover:bg-bg/60',
+                    )}
+                  >
+                    <span className={cn(
+                      'h-4 w-4 rounded-md border grid place-items-center shrink-0',
+                      sel ? 'bg-accent border-accent text-accent-fg' : 'border-border',
+                    )}>
+                      {sel && <Check className="h-3 w-3" />}
+                    </span>
+                    <span className="flex-1 truncate">{s.name}</span>
+                    <span className="text-muted text-xs">{s.duration_min}m</span>
+                    <span className="font-medium">{inr(s.price)}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
-          <div>
-            <label className="label">Date</label>
-            <input className="input" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Time</label>
-            <select className="input" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })}>
-              <option value="">{loadingSlots ? 'Loading times...' : 'Select time'}</option>
-              {slots.filter((s) => s.available).map((slot) => (
-                <option key={slot.time} value={slot.time}>{fmtTime12(slot.time)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">Notes optional</label>
-            <textarea className="textarea" rows={3} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
-          </div>
+          ))}
         </div>
+        {selected.length > 0 && (
+          <div className="text-xs text-muted mt-1.5 flex items-center gap-3">
+            <span><Clock className="h-3 w-3 inline" /> {totalDuration} min</span>
+            <span className="font-semibold text-ink">{inr(totalPrice)}</span>
+          </div>
+        )}
+      </div>
 
-        <div className="mt-4 text-sm text-muted">
-          {service ? `${service.duration_min} min · ${inr(service.price)}` : 'Select a service to see available times.'}
+      {site.sections.stylists && (
+        <div>
+          <label className="label">Stylist</label>
+          <select className="input" value={draft.stylist_id} onChange={(e) => setDraft({ ...draft, stylist_id: e.target.value })}>
+            <option value="any">Any stylist</option>
+            {stylists.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
         </div>
+      )}
 
-        <div className="flex justify-end gap-2 mt-6">
-          <button className="btn-outline" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={save} disabled={saving || !service || !draft.time}>
-            {saving ? 'Saving...' : 'Save booking'}
-          </button>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label className="label">Date</label>
+          <input className="input" type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
         </div>
+        <div>
+          <label className="label">Time</label>
+          <select className="input" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })}>
+            <option value="">{loadingSlots ? 'Loading...' : 'Select time'}</option>
+            {slots.filter((s) => s.available).map((slot) => (
+              <option key={slot.time} value={slot.time}>{fmtTime12(slot.time)}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Notes</label>
+        <textarea className="textarea" rows={2} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <button className="btn-outline" onClick={onClose}>Cancel</button>
+        <button className="btn-primary" onClick={save} disabled={saving || selected.length === 0 || !draft.time}>
+          {saving ? 'Saving...' : mode === 'edit' ? 'Save changes' : 'Create booking'}
+        </button>
       </div>
     </div>
   );
-}
 
-function StatusBadge({ status }: { status: BookingStatus }) {
-  const map: Record<BookingStatus, string> = {
-    pending: 'bg-amber-100 text-amber-900',
-    confirmed: 'bg-emerald-100 text-emerald-900',
-    cancelled: 'bg-red-100 text-red-900',
-    completed: 'bg-blue-100 text-blue-900',
-    no_show: 'bg-zinc-200 text-zinc-700',
-  };
-  return <span className={'badge ' + map[status]}>{status.replace('_', ' ')}</span>;
+  if (inline) {
+    return (
+      <>
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-10">
+          <h3 className="font-display text-lg">Edit booking</h3>
+          <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5">{body}</div>
+      </>
+    );
+  }
+
+  return (
+    <Modal title={mode === 'edit' ? 'Edit booking' : 'New booking'} onClose={onClose} size="lg">
+      {body}
+    </Modal>
+  );
 }

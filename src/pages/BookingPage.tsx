@@ -26,12 +26,12 @@ import { repo } from '../lib/repo';
 import type { Booking, Service, Stylist } from '../types/db';
 import { cn, fmtTime12, inr, isoDate } from '../lib/utils';
 import { generateSlots, type Slot } from '../lib/slots';
+import { SERVICES_NOTE_PREFIX } from '../lib/booking';
 import { site } from '../config/site';
 
 type Step = 1 | 2 | 3 | 4;
 
 const STEPS = ['Services', 'Date & time', 'Details'] as const;
-export const SERVICES_NOTE_PREFIX = 'Services: ';
 
 const customerSchema = z.object({
   customer_name: z.string().min(2, 'Please enter your full name'),
