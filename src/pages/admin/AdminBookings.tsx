@@ -274,7 +274,7 @@ export default function AdminBookings() {
 
       {/* Desktop table */}
       <div className="hidden lg:block card overflow-hidden">
-        <table className="w-full text-sm table-fixed">
+        <table className="w-full text-[13px] table-fixed">
           <colgroup>
             <col className="w-[22%]" />
             <col className="w-[28%]" />

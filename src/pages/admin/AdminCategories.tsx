@@ -144,50 +144,56 @@ export default function AdminCategories() {
 
       {/* Desktop table */}
       <div className="hidden lg:block card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[560px]">
-            <thead>
-              <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
-                <th className="text-left py-3 px-4 font-medium w-10">Order</th>
-                <th className="text-left py-3 px-4 font-medium">Category</th>
-                <th className="text-center py-3 px-4 font-medium">Active</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="border-t border-border"><td colSpan={4} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
-                ))
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={4} className="text-center text-muted py-12">No categories match.</td></tr>
-              ) : filtered.map((category) => (
-                <tr key={category.id} className="border-t border-border hover:bg-bg/40">
-                  <td className="py-2 px-2 text-center">
-                    <div className="inline-flex flex-col gap-0.5">
-                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(category, -1)} title="Move up">
-                        <ArrowUp className="h-3.5 w-3.5" />
-                      </button>
-                      <button className="btn-ghost btn-sm !p-0.5" onClick={() => move(category, 1)} title="Move down">
-                        <ArrowDown className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 font-medium">{category.name}</td>
-                  <td className="py-3 px-4 text-center">
-                    <button onClick={() => toggleActive(category)}>
-                      <Toggle on={category.active} />
+        <table className="w-full text-[13px] table-fixed">
+          <colgroup>
+            <col className="w-12" />
+            <col />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+          </colgroup>
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-muted bg-bg/60 border-b border-border">
+              <th className="text-center py-2.5 px-2 font-semibold">#</th>
+              <th className="text-left py-2.5 px-3 font-semibold">Category</th>
+              <th className="text-center py-2.5 px-3 font-semibold">Active</th>
+              <th className="py-2.5 px-3 sr-only">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i}><td colSpan={4} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={4} className="text-center text-muted py-12">No categories match.</td></tr>
+            ) : filtered.map((category) => (
+              <tr key={category.id} className={'group hover:bg-bg/40 transition-colors ' + (category.active ? '' : 'opacity-60')}>
+                <td className="py-2.5 px-2 align-middle">
+                  <div className="inline-flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button className="h-5 w-5 rounded grid place-items-center hover:bg-bg text-muted" onClick={() => move(category, -1)} title="Move up">
+                      <ArrowUp className="h-3 w-3" />
                     </button>
-                  </td>
-                  <td className="py-3 px-4 text-right whitespace-nowrap">
-                    <button className="btn-ghost btn-sm" onClick={() => setEditing(category)}><Pencil className="h-4 w-4" /></button>
-                    <button className="btn-ghost btn-sm text-red-600" onClick={() => askDelete(category)}><Trash2 className="h-4 w-4" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    <button className="h-5 w-5 rounded grid place-items-center hover:bg-bg text-muted" onClick={() => move(category, 1)} title="Move down">
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                  </div>
+                </td>
+                <td className="py-2.5 px-3 font-medium truncate">{category.name}</td>
+                <td className="py-2.5 px-3 text-center">
+                  <button onClick={() => toggleActive(category)} className="align-middle">
+                    <Toggle on={category.active} />
+                  </button>
+                </td>
+                <td className="py-2.5 px-3 text-right">
+                  <div className="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                    <button className="h-7 w-7 rounded-md grid place-items-center hover:bg-bg text-muted" onClick={() => setEditing(category)} title="Edit"><Pencil className="h-3.5 w-3.5" /></button>
+                    <button className="h-7 w-7 rounded-md grid place-items-center hover:bg-red-50 text-red-600" onClick={() => askDelete(category)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {editing && (

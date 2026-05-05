@@ -190,24 +190,30 @@ export default function AdminHours() {
 
         {/* Desktop table */}
         <div className="hidden lg:block card overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px] table-fixed">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col />
+              <col />
+              <col className="w-[14%]" />
+            </colgroup>
             <thead>
-              <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
-                <th className="text-left py-3 px-4 font-medium">Day</th>
-                <th className="text-left py-3 px-4 font-medium">Opens</th>
-                <th className="text-left py-3 px-4 font-medium">Closes</th>
-                <th className="text-center py-3 px-4 font-medium">Closed</th>
+              <tr className="text-[11px] uppercase tracking-wider text-muted bg-bg/60 border-b border-border">
+                <th className="text-left py-2.5 px-3 font-semibold">Day</th>
+                <th className="text-left py-2.5 px-3 font-semibold">Opens</th>
+                <th className="text-left py-2.5 px-3 font-semibold">Closes</th>
+                <th className="text-center py-2.5 px-3 font-semibold">Closed</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {loading ? (
                 Array.from({ length: 7 }).map((_, i) => (
-                  <tr key={i} className="border-t border-border"><td colSpan={4} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
+                  <tr key={i}><td colSpan={4} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></td></tr>
                 ))
               ) : hours.map((h) => (
-                <tr key={h.day_of_week} className={'border-t border-border ' + (dirty.has(h.day_of_week) ? 'bg-amber-50/50' : '')}>
-                  <td className="py-2 px-4 font-medium">{DAYS[h.day_of_week]}</td>
-                  <td className="py-2 px-4">
+                <tr key={h.day_of_week} className={'transition-colors ' + (dirty.has(h.day_of_week) ? 'bg-amber-50/50' : 'hover:bg-bg/40')}>
+                  <td className="py-2 px-3 font-medium align-middle">{DAYS[h.day_of_week]}</td>
+                  <td className="py-2 px-3 align-middle">
                     <input
                       type="time"
                       className="input py-1.5 text-sm w-auto"
@@ -216,7 +222,7 @@ export default function AdminHours() {
                       onChange={(e) => patchHour(h.day_of_week, { open_time: e.target.value })}
                     />
                   </td>
-                  <td className="py-2 px-4">
+                  <td className="py-2 px-3 align-middle">
                     <input
                       type="time"
                       className="input py-1.5 text-sm w-auto"
@@ -225,7 +231,7 @@ export default function AdminHours() {
                       onChange={(e) => patchHour(h.day_of_week, { close_time: e.target.value })}
                     />
                   </td>
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-2 px-3 text-center align-middle">
                     <input
                       type="checkbox"
                       checked={h.closed}
@@ -278,37 +284,43 @@ export default function AdminHours() {
 
         {/* Desktop table */}
         <div className="hidden lg:block card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
-              <thead>
-                <tr className="text-xs uppercase tracking-wider text-muted bg-bg">
-                  <th className="text-left py-3 px-4 font-medium">Date</th>
-                  <th className="text-left py-3 px-4 font-medium">Time</th>
-                  <th className="text-left py-3 px-4 font-medium">Reason</th>
-                  <th></th>
+          <table className="w-full text-[13px] table-fixed">
+            <colgroup>
+              <col className="w-[22%]" />
+              <col className="w-[26%]" />
+              <col />
+              <col className="w-[14%]" />
+            </colgroup>
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wider text-muted bg-bg/60 border-b border-border">
+                <th className="text-left py-2.5 px-3 font-semibold">Date</th>
+                <th className="text-left py-2.5 px-3 font-semibold">Time</th>
+                <th className="text-left py-2.5 px-3 font-semibold">Reason</th>
+                <th className="py-2.5 px-3 sr-only">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {blocked.length === 0 ? (
+                <tr><td colSpan={4} className="text-center text-muted py-12">Nothing blocked in the next 90 days.</td></tr>
+              ) : blocked.map((b) => (
+                <tr key={b.id} className="group hover:bg-bg/40 transition-colors">
+                  <td className="py-2.5 px-3 font-medium whitespace-nowrap">
+                    {new Date(`${b.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </td>
+                  <td className="py-2.5 px-3 text-muted whitespace-nowrap tabular-nums">
+                    {fmtTime12(b.start_time)} – {fmtTime12(b.end_time)}
+                  </td>
+                  <td className="py-2.5 px-3 text-muted truncate" title={b.reason ?? undefined}>{b.reason || '—'}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <div className="inline-flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                      <button className="h-7 px-2 rounded-md text-xs font-medium hover:bg-bg text-muted" onClick={() => setEditingBlock(b)} title="Edit">Edit</button>
+                      <button className="h-7 w-7 rounded-md grid place-items-center hover:bg-red-50 text-red-600" onClick={() => askDeleteBlock(b)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {blocked.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center text-muted py-12">Nothing blocked in the next 90 days.</td></tr>
-                ) : blocked.map((b) => (
-                  <tr key={b.id} className="border-t border-border">
-                    <td className="py-3 px-4 font-medium">
-                      {new Date(`${b.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </td>
-                    <td className="py-3 px-4 text-muted">
-                      {fmtTime12(b.start_time)} – {fmtTime12(b.end_time)}
-                    </td>
-                    <td className="py-3 px-4 text-muted">{b.reason || '—'}</td>
-                    <td className="py-3 px-4 text-right whitespace-nowrap">
-                      <button className="btn-ghost btn-sm" onClick={() => setEditingBlock(b)}>Edit</button>
-                      <button className="btn-ghost btn-sm text-red-600" onClick={() => askDeleteBlock(b)}><Trash2 className="h-4 w-4" /></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
