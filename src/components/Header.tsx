@@ -41,13 +41,13 @@ export default function Header() {
 
           <nav className="hidden lg:flex items-center gap-8">
             {primaryNav.map((n) => (
-              <a
+              <Link
                 key={n.href}
-                href={n.href}
+                to={n.href.startsWith('#') ? `/${n.href}` : n.href}
                 className="text-sm font-medium text-muted hover:text-ink transition-colors"
               >
                 {n.label}
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -66,8 +66,8 @@ export default function Header() {
         </div>
       </header>
 
-      <nav className="lg:hidden fixed left-3 right-3 bottom-3 z-50 h-16 rounded-2xl border border-border bg-surface/95 shadow-glow backdrop-blur">
-        <div className="grid h-full grid-cols-5 items-center">
+      <nav className="lg:hidden fixed inset-x-0 bottom-0 z-50 h-14 border-t border-border bg-surface/95 backdrop-blur">
+        <div className="grid h-full grid-cols-5">
           {leftBottomNav.map((item) => (
             <BottomNavItem key={item.href} item={item} />
           ))}
@@ -76,9 +76,14 @@ export default function Header() {
           <NavLink
             to="/book"
             aria-label="Book appointment"
-            className="mx-auto -mt-8 grid h-16 w-16 place-items-center rounded-full bg-accent text-accent-fg shadow-glow border-4 border-bg"
+            className={({ isActive }) =>
+              `flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
+                isActive ? 'text-accent' : 'text-muted hover:text-ink'
+              }`
+            }
           >
-            <Calendar className="h-6 w-6" />
+            <Calendar className="h-4 w-4" />
+            <span>Book</span>
           </NavLink>
 
           {rightBottomNav.map((item) => (
@@ -106,9 +111,9 @@ function BottomNavItem({
 }) {
   const Icon = item.icon;
   return (
-    <a href={item.href} className="flex h-full flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted hover:text-ink">
+    <Link to={item.href} className="flex h-full flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted hover:text-ink">
       <Icon className="h-4 w-4" />
       <span>{item.label}</span>
-    </a>
+    </Link>
   );
 }

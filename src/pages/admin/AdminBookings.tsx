@@ -7,6 +7,19 @@ import { fmtTime12, inr, isoDate } from '../../lib/utils';
 import { cn } from '../../lib/utils';
 import { generateSlots, type Slot } from '../../lib/slots';
 import { site } from '../../config/site';
+import { SERVICES_NOTE_PREFIX } from '../BookingPage';
+
+// Multi-service bookings are stored with a "Services: A + B + C" prefix in
+// the notes field (the schema only carries one service_id). Split it back out
+// for display.
+function parseBookingNotes(notes: string | null) {
+  if (!notes) return { services: null as string | null, userNotes: null as string | null };
+  if (!notes.startsWith(SERVICES_NOTE_PREFIX)) return { services: null, userNotes: notes };
+  const rest = notes.slice(SERVICES_NOTE_PREFIX.length);
+  const splitIdx = rest.indexOf('\n\n');
+  if (splitIdx === -1) return { services: rest.trim(), userNotes: null };
+  return { services: rest.slice(0, splitIdx).trim(), userNotes: rest.slice(splitIdx + 2).trim() || null };
+}
 
 const statusFilters: ({ value: BookingStatus | 'all'; label: string })[] = [
   { value: 'all', label: 'All' },
@@ -129,14 +142,16 @@ export default function AdminBookings() {
                 ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7} className="text-center text-muted py-12">No bookings match these filters.</td></tr>
-              ) : filtered.map((b) => (
+              ) : filtered.map((b) => {
+                const parsed = parseBookingNotes(b.notes);
+                return (
                 <tr key={b.id} className="border-t border-border align-top">
                   <td className="py-3 px-4">
                     <div className="font-medium">{b.customer_name}</div>
                     <div className="text-xs text-muted">{b.phone}</div>
-                    {b.notes && <div className="text-xs text-muted italic mt-1">"{b.notes}"</div>}
+                    {parsed.userNotes && <div className="text-xs text-muted italic mt-1">"{parsed.userNotes}"</div>}
                   </td>
-                  <td className="py-3 px-4">{serviceName(b.service_id)}</td>
+                  <td className="py-3 px-4">{parsed.services ?? serviceName(b.service_id)}</td>
                   <td className="py-3 px-4">{stylistName(b.stylist_id)}</td>
                   <td className="py-3 px-4 whitespace-nowrap">
                     {new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}<br />
@@ -165,7 +180,8 @@ export default function AdminBookings() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
