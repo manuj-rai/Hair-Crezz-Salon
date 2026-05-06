@@ -41,4 +41,4 @@ insert into public.gallery_images (url, caption, sort_order) values
   ('https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=900&q=80','Gent''s grooming',4),
   ('https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=900&q=80','Cut & finish',5),
   ('https://images.unsplash.com/photo-1559599101-f09722fb4948?w=900&q=80','Highlights',6),
-  ('https://images.unsplash.com/photo-1607008829749-c0f284a49841?w=900&q=80','Spa',7);
+  ('https://kenoshatspa.com/wp-content/uploads/2019/10/kenosha_cosmetology.jpg','Spa',7);
