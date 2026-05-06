@@ -42,7 +42,7 @@ export const seedGallery: GalleryImage[] = [
   { id: 'g5', url: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=900&q=80', caption: 'Cut & finish', sort_order: 5 },
   { id: 'g6', url: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=900&q=80', caption: 'Updo', sort_order: 6 },
   { id: 'g7', url: 'https://images.unsplash.com/photo-1559599101-f09722fb4948?w=900&q=80', caption: 'Highlights', sort_order: 7 },
-  { id: 'g8', url: 'https://images.unsplash.com/photo-1607008829749-c0f284a49841?w=900&q=80', caption: 'Spa', sort_order: 8 },
+  { id: 'g8', url: 'https://kenoshatspa.com/wp-content/uploads/2019/10/kenosha_cosmetology.jpg', caption: 'Spa', sort_order: 8 },
 ];
 
 export const seedTestimonials: Testimonial[] = [
