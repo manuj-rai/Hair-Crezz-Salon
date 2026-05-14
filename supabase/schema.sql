@@ -6,6 +6,11 @@
 
 create extension if not exists "pgcrypto";
 
+-- Remove the legacy stylist catalog and booking dependency if this schema is
+-- re-run against an older project.
+alter table if exists public.bookings drop column if exists stylist_id;
+drop table if exists public.stylists;
+
 -- ---------------------------------------------------------------------------
 -- Tables
 -- ---------------------------------------------------------------------------
@@ -27,24 +32,12 @@ create table if not exists public.services (
   sort_order   int  not null default 0
 );
 
-create table if not exists public.stylists (
-  id           uuid primary key default gen_random_uuid(),
-  name         text not null,
-  role         text not null,
-  bio          text,
-  photo_url    text,
-  specialties  text[] not null default '{}',
-  active       bool not null default true,
-  sort_order   int  not null default 0
-);
-
 create table if not exists public.bookings (
   id            uuid primary key default gen_random_uuid(),
   customer_name text not null,
   phone         text not null,
   email         text,
   service_id    uuid not null references public.services(id) on delete restrict,
-  stylist_id    uuid     references public.stylists(id) on delete set null,
   date          date not null,
   time          text not null,            -- HH:mm
   duration_min  int  not null,
@@ -94,7 +87,6 @@ create table if not exists public.blocked_slots (
 -- ---------------------------------------------------------------------------
 alter table public.services       enable row level security;
 alter table public.service_categories enable row level security;
-alter table public.stylists       enable row level security;
 alter table public.bookings       enable row level security;
 alter table public.gallery_images enable row level security;
 alter table public.testimonials   enable row level security;
@@ -109,8 +101,6 @@ begin
   if not found then create policy public_read on public.service_categories for select using (true); end if;
   perform 1 from pg_policies where tablename='services' and policyname='public_read';
   if not found then create policy public_read on public.services       for select using (true); end if;
-  perform 1 from pg_policies where tablename='stylists' and policyname='public_read';
-  if not found then create policy public_read on public.stylists       for select using (true); end if;
   perform 1 from pg_policies where tablename='gallery_images' and policyname='public_read';
   if not found then create policy public_read on public.gallery_images for select using (true); end if;
   perform 1 from pg_policies where tablename='testimonials' and policyname='public_read';
@@ -135,8 +125,6 @@ begin
   if not found then create policy auth_write on public.service_categories for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
   perform 1 from pg_policies where tablename='services' and policyname='auth_write';
   if not found then create policy auth_write on public.services for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
-  perform 1 from pg_policies where tablename='stylists' and policyname='auth_write';
-  if not found then create policy auth_write on public.stylists for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
   perform 1 from pg_policies where tablename='gallery_images' and policyname='auth_write';
   if not found then create policy auth_write on public.gallery_images for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated'); end if;
   perform 1 from pg_policies where tablename='testimonials' and policyname='auth_write';

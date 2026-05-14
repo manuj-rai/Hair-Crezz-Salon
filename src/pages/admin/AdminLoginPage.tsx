@@ -8,8 +8,8 @@ import { site } from '../../config/site';
 export default function AdminLoginPage() {
   const { signIn, mode } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState(mode === 'demo' ? 'admin@demo.local' : '');
-  const [password, setPassword] = useState(mode === 'demo' ? 'admin' : '');
+  const [email, setEmail] = useState('demo@admin.com');
+  const [password, setPassword] = useState('demo');
   const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {

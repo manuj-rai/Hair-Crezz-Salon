@@ -142,7 +142,6 @@ export default function BookingPage() {
         phone: values.phone,
         email: values.email || null,
         service_id: selectedServices[0].id,
-        stylist_id: stylist?.id ?? null,
         date: isoDate(date),
         time,
         duration_min: totalDuration,

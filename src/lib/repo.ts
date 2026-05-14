@@ -167,10 +167,7 @@ export const repo = {
   // ---- stylists ----
   async listStylists(activeOnly = true): Promise<Stylist[]> {
     if (!supabase) return memStylists.filter((s) => !activeOnly || s.active).sort((a, b) => a.sort_order - b.sort_order);
-    const q = supabase.from('stylists').select('*').order('sort_order');
-    const { data, error } = activeOnly ? await q.eq('active', true) : await q;
-    if (error) throw error;
-    return (data ?? []) as Stylist[];
+    return [];
   },
   async upsertStylist(s: Partial<Stylist> & { name: string; role: string }): Promise<Stylist> {
     if (!supabase) {
@@ -188,9 +185,7 @@ export const repo = {
       if (idx >= 0) memStylists[idx] = next; else memStylists.push(next);
       return next;
     }
-    const { data, error } = await supabase.from('stylists').upsert(s).select().single();
-    if (error) throw error;
-    return data as Stylist;
+    throw new Error('Stylists are not enabled for this schema');
   },
   async deleteStylist(id: string) {
     if (!supabase) {
@@ -198,8 +193,7 @@ export const repo = {
       if (i >= 0) memStylists.splice(i, 1);
       return;
     }
-    const { error } = await supabase.from('stylists').delete().eq('id', id);
-    if (error) throw error;
+    throw new Error('Stylists are not enabled for this schema');
   },
 
   // ---- bookings ----
@@ -262,7 +256,7 @@ export const repo = {
     const { error } = await supabase.from('bookings').delete().eq('id', id);
     if (error) throw error;
   },
-  async listBookedTimes(date: string, stylistId: string | null): Promise<{ time: string; duration_min: number }[]> {
+  async listBookedTimes(date: string, stylistId: string | null = null): Promise<{ time: string; duration_min: number }[]> {
     if (!supabase) {
       return memBookings
         .filter(
@@ -273,8 +267,7 @@ export const repo = {
         )
         .map((b) => ({ time: b.time, duration_min: b.duration_min }));
     }
-    let q = supabase.from('bookings').select('time, duration_min').eq('date', date).neq('status', 'cancelled');
-    if (stylistId) q = q.eq('stylist_id', stylistId);
+    const q = supabase.from('bookings').select('time, duration_min').eq('date', date).neq('status', 'cancelled');
     const { data, error } = await q;
     if (error) throw error;
     return (data ?? []) as { time: string; duration_min: number }[];

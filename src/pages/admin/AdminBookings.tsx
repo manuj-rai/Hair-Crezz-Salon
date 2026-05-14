@@ -122,7 +122,7 @@ export default function AdminBookings() {
   }, [filtered]);
 
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? '—';
-  const stylistName = (id: string | null) => (id ? stylists.find((s) => s.id === id)?.name ?? '—' : 'Any');
+  const stylistName = (id?: string | null) => (id ? stylists.find((s) => s.id === id)?.name ?? '—' : 'Any');
 
   async function setStatus(b: Booking, status: BookingStatus) {
     try {
@@ -902,7 +902,6 @@ function BookingFormModal({
           phone: draft.phone.trim(),
           email: draft.email.trim() || null,
           service_id: selected[0].id,
-          stylist_id: stylistId,
           date: draft.date,
           time: draft.time,
           duration_min: totalDuration,
@@ -918,7 +917,6 @@ function BookingFormModal({
           phone: draft.phone.trim(),
           email: draft.email.trim() || null,
           service_id: selected[0].id,
-          stylist_id: stylistId,
           date: draft.date,
           time: draft.time,
           duration_min: totalDuration,

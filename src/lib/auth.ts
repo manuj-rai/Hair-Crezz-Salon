@@ -1,12 +1,14 @@
 /**
  * Tiny auth wrapper. In Supabase mode, uses real auth. In demo mode, accepts
- * a hardcoded admin/admin login so the dashboard can be browsed in previews.
+ * a hardcoded demo login so the dashboard can be browsed in previews.
  */
 import { useEffect, useState } from 'react';
 import { isSupabaseConfigured, supabase } from './supabase';
 
 const DEMO_KEY = 'demo-admin';
-const DEMO_USER = { email: 'demo@admin.local' };
+const DEMO_EMAIL = 'demo@admin.com';
+const DEMO_PASSWORD = 'demo';
+const DEMO_USER = { email: DEMO_EMAIL };
 
 export type AuthUser = { email: string };
 
@@ -37,11 +39,11 @@ export function useAuth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     } else {
-      if (email === 'admin@demo.local' && password === 'admin') {
+      if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
         localStorage.setItem(DEMO_KEY, '1');
         setUser(DEMO_USER);
       } else {
-        throw new Error('Demo login: use admin@demo.local / admin');
+        throw new Error(`Demo login: use ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
       }
     }
   }

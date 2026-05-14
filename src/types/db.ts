@@ -37,7 +37,7 @@ export type Booking = {
   phone: string;
   email: string | null;
   service_id: string;
-  stylist_id: string | null;
+  stylist_id?: string | null;
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   duration_min: number;

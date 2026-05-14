@@ -22,16 +22,10 @@ insert into public.services (name, category, description, duration_min, price, s
   ('Gel Manicure','Nails','Long-wear gel polish with cuticle care.',60,1200,11),
   ('Full-Body Waxing','Waxing','Roll-on wax with after-care.',90,2500,12);
 
-insert into public.stylists (name, role, bio, photo_url, specialties, sort_order) values
-  ('Aarav Mehta','Creative Director','12+ years, trained in London. Specialises in precision cutting and balayage.','https://images.unsplash.com/photo-1622286342621-4bd786c2447c?w=600&q=80',array['Cuts','Color','Balayage'],1),
-  ('Priya Shah','Senior Stylist','Bridal specialist with a love for soft, romantic looks and HD makeup.','https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=600&q=80',array['Bridal','Makeup','Updos'],2),
-  ('Rohan Patel','Senior Barber','Men''s grooming expert — fades, beards and classic scissor cuts.','https://images.unsplash.com/photo-1605497788044-5a32c7078486?w=600&q=80',array['Men''s Cuts','Beards','Fades'],3),
-  ('Sneha Iyer','Color & Spa Therapist','Color correction and rejuvenating hair-spa rituals.','https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?w=600&q=80',array['Color','Spa','Treatments'],4);
-
 insert into public.testimonials (author, rating, body, source) values
-  ('Ananya R.',5,'Best balayage I have ever had — Aarav understood exactly the dimension I wanted.','Google'),
+  ('Ananya R.',5,'Best balayage I have ever had - Aarav understood exactly the dimension I wanted.','Google'),
   ('Karan D.',5,'Rohan''s fades are unmatched. I drive across the city every month for my cut.','Instagram'),
-  ('Meera J.',5,'Priya did my bridal hair and makeup — every single guest asked who my artist was.','Google'),
+  ('Meera J.',5,'Priya did my bridal hair and makeup - every single guest asked who my artist was.','Google'),
   ('Diya K.',5,'The hair spa is pure bliss. I leave feeling like a new person every time.','Google');
 
 insert into public.gallery_images (url, caption, sort_order) values

@@ -18,7 +18,7 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-Demo admin login: `admin@demo.local` / `admin`
+Demo admin login: `demo@admin.com` / `demo`
 
 ---
 
