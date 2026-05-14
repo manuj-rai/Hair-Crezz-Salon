@@ -19,13 +19,13 @@ export default function Testimonials() {
         </div>
 
         {!items ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="card p-6 h-44 shimmer-bg animate-shimmer" />
             ))}
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {items.map((t) => (
               <article key={t.id} className="card p-6 flex flex-col">
                 <Quote className="h-6 w-6 text-accent" />

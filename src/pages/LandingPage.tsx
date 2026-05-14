@@ -43,7 +43,7 @@ export default function LandingPage() {
   }, [hash]);
 
   return (
-    <div className="min-h-full pb-14 lg:pb-0">
+    <div className="min-h-full pb-[calc(theme(spacing.16)+env(safe-area-inset-bottom))] lg:pb-0">
       <Header />
       <main>
         {site.sections.hero && <Hero />}

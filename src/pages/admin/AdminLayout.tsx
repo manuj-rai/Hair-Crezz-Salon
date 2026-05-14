@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, FolderTree, LayoutDashboard, LogOut, Menu, Scissors, Users, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../lib/auth';
 import { repo } from '../../lib/repo';
 import { site } from '../../config/site';
@@ -19,12 +19,40 @@ export default function AdminLayout() {
   const { user, signOut } = useAuth();
   const nav = useNavigate();
   const { pathname } = useLocation();
-  const [open, setOpen] = useState(false);
+  const [drawerState, setDrawerState] = useState<'closed' | 'opening' | 'closing'>('closed');
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerState((s) => (s === 'closed' ? s : 'closing'));
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setDrawerState('closed'), 220);
+  }, []);
+
+  function openDrawer() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setDrawerState('opening');
+  }
 
   // Auto-close drawer on route change.
-  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (drawerState !== 'closed') closeDrawer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // Lock body scroll while drawer is open.
+  useEffect(() => {
+    if (drawerState === 'opening') {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [drawerState]);
+
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
   const currentLabel = links.find((l) => (l.end ? pathname === l.to : pathname.startsWith(l.to)))?.label ?? 'Admin';
+  const drawerVisible = drawerState !== 'closed';
+  const drawerClosing = drawerState === 'closing';
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_1fr]">
@@ -32,8 +60,8 @@ export default function AdminLayout() {
       <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-3 py-2.5 border-b border-border bg-bg/95 backdrop-blur">
         <button
           aria-label="Open menu"
-          onClick={() => setOpen(true)}
-          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink"
+          onClick={openDrawer}
+          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink active:scale-95 transition-transform"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -44,18 +72,29 @@ export default function AdminLayout() {
         <Link
           to="/"
           aria-label="Back to public site"
-          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink"
+          className="h-9 w-9 rounded-lg border border-border bg-surface grid place-items-center text-ink active:scale-95 transition-transform"
         >
           <X className="h-4 w-4" />
         </Link>
       </div>
 
       {/* Mobile drawer */}
-      {open && (
-        <div className="lg:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-[260px] bg-surface border-r border-border flex flex-col shadow-xl animate-fade-in">
-            <DrawerHeader onClose={() => setOpen(false)} />
+      {drawerVisible && (
+        <div className="lg:hidden fixed inset-0 z-40" role="dialog" aria-modal="true">
+          <div
+            className={cn(
+              'absolute inset-0 bg-primary/40 backdrop-blur-sm',
+              drawerClosing ? 'animate-fade-out' : 'animate-fade-in',
+            )}
+            onClick={closeDrawer}
+          />
+          <aside
+            className={cn(
+              'absolute left-0 top-0 h-full w-[260px] bg-surface border-r border-border flex flex-col shadow-xl will-change-transform',
+              drawerClosing ? 'animate-slide-out-left' : 'animate-slide-in-left',
+            )}
+          >
+            <DrawerHeader onClose={closeDrawer} />
             <NavList />
             <UserPanel email={user?.email} onSignOut={async () => { await signOut(); nav('/admin/login'); }} />
           </aside>

@@ -1,5 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Clock, Plus, RotateCcw, Search, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  CheckCheck,
+  ChevronRight,
+  Clock,
+  IndianRupee,
+  ListFilter,
+  Mail,
+  Pencil,
+  Phone,
+  Plus,
+  RotateCcw,
+  Scissors,
+  Search,
+  Trash2,
+  User,
+  UserX,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { repo } from '../../lib/repo';
 import type { Booking, BookingStatus, Service, Stylist } from '../../types/db';
@@ -150,13 +170,25 @@ export default function AdminBookings() {
       </header>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-5">
-        <SummaryCard label="Showing" value={totals.count} sub={`of ${bookings.length}`} />
-        <SummaryCard label="Revenue" value={inr(totals.revenue)} sub="excl. cancelled" />
+        <SummaryCard
+          label="Showing"
+          value={totals.count}
+          sub={`of ${bookings.length}`}
+          icon={<ListFilter className="h-4 w-4" />}
+        />
+        <SummaryCard
+          label="Revenue"
+          value={inr(totals.revenue)}
+          sub="excl. cancelled"
+          icon={<IndianRupee className="h-4 w-4" />}
+        />
         <SummaryCard
           label="Pending"
           value={pendingCount}
           sub="needs action"
           accent={pendingCount > 0}
+          icon={<AlertCircle className="h-4 w-4" />}
+          onClick={pendingCount > 0 ? () => setFilter('pending') : undefined}
         />
       </div>
 
@@ -391,13 +423,70 @@ export default function AdminBookings() {
   );
 }
 
-function SummaryCard({ label, value, sub, accent }: { label: string; value: React.ReactNode; sub?: string; accent?: boolean }) {
-  return (
-    <div className={cn('card p-2.5 sm:p-4', accent && 'bg-accent/5 border-accent/40')}>
-      <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted leading-tight">{label}</div>
-      <div className="text-base sm:text-2xl font-display mt-0.5 sm:mt-1 leading-tight truncate">{value}</div>
-      {sub && <div className="text-[10px] sm:text-xs text-muted mt-0.5">{sub}</div>}
+function SummaryCard({
+  label,
+  value,
+  sub,
+  accent,
+  icon,
+  onClick,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: string;
+  accent?: boolean;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+}) {
+  const body = (
+    <div
+      className={cn(
+        'card p-2.5 sm:p-4 transition text-left w-full h-full',
+        accent && 'bg-accent/5 border-accent/40',
+        onClick && 'hover:border-ink active:scale-[0.98]',
+      )}
+    >
+      <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {icon && (
+              <span
+                className={cn(
+                  'sm:hidden inline-grid h-4 w-4 place-items-center shrink-0',
+                  accent ? 'text-accent' : 'text-muted',
+                )}
+              >
+                {icon}
+              </span>
+            )}
+            <div className="text-[10px] sm:text-xs uppercase tracking-wider text-muted leading-tight truncate">
+              {label}
+            </div>
+          </div>
+          <div className="text-base sm:text-2xl font-display mt-0.5 sm:mt-1 leading-tight tabular-nums truncate">
+            {value}
+          </div>
+          {sub && <div className="text-[10px] sm:text-xs text-muted mt-0.5 truncate">{sub}</div>}
+        </div>
+        {icon && (
+          <div
+            className={cn(
+              'hidden sm:grid h-9 w-9 rounded-lg place-items-center shrink-0',
+              accent ? 'bg-accent/15 text-accent' : 'bg-bg text-muted',
+            )}
+          >
+            {icon}
+          </div>
+        )}
+      </div>
     </div>
+  );
+  return onClick ? (
+    <button type="button" onClick={onClick} className="block">
+      {body}
+    </button>
+  ) : (
+    body
   );
 }
 
@@ -421,11 +510,44 @@ function BookingDetailPanel({
   onUpdated: (b: Booking) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => onClose(), 220);
+  }, [closing, onClose]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') requestClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [requestClose]);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-primary/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Booking details">
       <div
-        className="relative bg-bg w-full sm:max-w-md h-full overflow-y-auto shadow-xl sm:border-l border-border animate-fade-in"
+        className={cn(
+          'absolute inset-0 bg-primary/40 backdrop-blur-sm',
+          closing ? 'animate-fade-out' : 'animate-fade-in',
+        )}
+        onClick={requestClose}
+      />
+      <div
+        className={cn(
+          'relative bg-bg w-full sm:max-w-md h-full overflow-y-auto sm:shadow-2xl sm:border-l border-border flex flex-col will-change-transform',
+          closing ? 'animate-slide-out-right' : 'animate-slide-in-right',
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {editing ? (
@@ -446,7 +568,7 @@ function BookingDetailPanel({
             booking={booking}
             services={services}
             stylists={stylists}
-            onClose={onClose}
+            onClose={requestClose}
             onSetStatus={onSetStatus}
             onDelete={onDelete}
             onEdit={() => setEditing(true)}
@@ -477,73 +599,187 @@ function DetailContent({
   const parsed = parseBookingNotes(booking.notes);
   const stylist = stylists.find((s) => s.id === booking.stylist_id);
   const primary = services.find((s) => s.id === booking.service_id);
+  const serviceText = parsed.services ?? primary?.name ?? '—';
+
+  const initials = booking.customer_name
+    .split(/\s+/)
+    .map((p) => p.charAt(0))
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  const transitions: { to: BookingStatus; label: string; icon: typeof Check; tone: 'pos' | 'neu' | 'neg' }[] = [
+    { to: 'confirmed', label: 'Confirm', icon: Check, tone: 'pos' },
+    { to: 'completed', label: 'Complete', icon: CheckCheck, tone: 'neu' },
+    { to: 'cancelled', label: 'Cancel', icon: X, tone: 'neg' },
+    { to: 'no_show', label: 'No-show', icon: UserX, tone: 'neg' },
+  ];
+
   return (
     <>
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between sticky top-0 bg-bg z-10">
-        <div>
-          <div className="font-display text-lg">{booking.customer_name}</div>
-          <div className="text-xs text-muted">{booking.phone}</div>
+      {/* Sticky header */}
+      <div className="px-4 sm:px-5 py-3 border-b border-border flex items-center gap-3 sticky top-0 bg-bg/95 backdrop-blur z-10">
+        <div className="h-10 w-10 rounded-full bg-accent/15 text-accent grid place-items-center font-semibold shrink-0">
+          {initials || <User className="h-4 w-4" />}
         </div>
-        <button onClick={onClose} aria-label="Close" className="text-muted hover:text-ink">
-          <X className="h-5 w-5" />
+        <div className="min-w-0 flex-1">
+          <div className="font-display text-base sm:text-lg truncate leading-tight">{booking.customer_name}</div>
+          <div className="text-xs text-muted truncate">
+            Booked {new Date(booking.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </div>
+        </div>
+        <a
+          href={`tel:${booking.phone}`}
+          aria-label="Call customer"
+          className="h-9 w-9 rounded-full border border-border bg-surface grid place-items-center text-ink hover:border-ink active:scale-95 transition"
+        >
+          <Phone className="h-4 w-4" />
+        </a>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="h-9 w-9 rounded-full border border-border bg-surface grid place-items-center text-muted hover:text-ink active:scale-95 transition"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="p-5 space-y-5">
-        <div className="flex items-center gap-2">
-          <StatusBadge status={booking.status} />
-          <span className="text-xs text-muted">Created {new Date(booking.created_at).toLocaleString()}</span>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-5 pb-32">
+        {/* Status + quick actions */}
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <StatusBadge status={booking.status} />
+            <span className="text-[11px] text-muted">
+              {new Date(booking.created_at).toLocaleString()}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {transitions
+              .filter((t) => t.to !== booking.status)
+              .map((t) => (
+                <button
+                  key={t.to}
+                  onClick={() => onSetStatus(t.to)}
+                  className={cn(
+                    'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition active:scale-[0.98]',
+                    t.tone === 'pos' && 'border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:border-emerald-300',
+                    t.tone === 'neg' && 'border-red-200 bg-red-50/70 text-red-700 hover:border-red-300',
+                    t.tone === 'neu' && 'border-border bg-surface text-ink hover:border-ink',
+                  )}
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {(['pending', 'confirmed', 'completed', 'cancelled'] as BookingStatus[])
-            .filter((s) => s !== booking.status)
-            .map((s) => (
-              <button
-                key={s}
-                onClick={() => onSetStatus(s)}
-                className="btn-outline btn-sm"
-              >
-                Mark {s.replace('_', ' ')}
-              </button>
-            ))}
+        {/* Hero card: service + price + when */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted font-semibold mb-1">Service</div>
+              <div className="text-sm font-medium leading-snug">{serviceText}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="font-display text-xl tabular-nums">{inr(booking.price)}</div>
+              <div className="text-[11px] text-muted flex items-center justify-end gap-1">
+                <Clock className="h-3 w-3" /> {booking.duration_min} min
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 text-sm">
+            <Calendar className="h-4 w-4 text-accent shrink-0" />
+            <span className="font-medium">
+              {new Date(booking.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </span>
+            <span className="text-muted">·</span>
+            <span className="text-ink">{fmtTime12(booking.time)}</span>
+          </div>
         </div>
 
-        <DetailRow label="Service" value={parsed.services ?? primary?.name ?? '—'} />
-        <DetailRow
-          label="When"
-          value={`${new Date(booking.date).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })} · ${fmtTime12(booking.time)}`}
-        />
-        <DetailRow label="Duration / Price" value={`${booking.duration_min} min · ${inr(booking.price)}`} />
-        {site.sections.stylists && (
-          <DetailRow label="Stylist" value={stylist ? `${stylist.name} (${stylist.role})` : 'Any available'} />
+        {/* Detail grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <InfoRow icon={Phone} label="Phone" value={booking.phone} href={`tel:${booking.phone}`} />
+          <InfoRow icon={Mail} label="Email" value={booking.email || '—'} href={booking.email ? `mailto:${booking.email}` : undefined} />
+          {site.sections.stylists && (
+            <InfoRow
+              icon={User}
+              label="Stylist"
+              value={stylist ? stylist.name : 'Any available'}
+              sub={stylist?.role}
+            />
+          )}
+          <InfoRow icon={Scissors} label="Booking ID" value={booking.id} mono />
+        </div>
+
+        {parsed.userNotes && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-muted font-semibold mb-1">
+              Customer notes
+            </div>
+            <div className="rounded-lg bg-surface border border-border px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed">
+              {parsed.userNotes}
+            </div>
+          </div>
         )}
-        <DetailRow label="Email" value={booking.email || '—'} />
-        {parsed.userNotes && <DetailRow label="Customer notes" value={parsed.userNotes} multiline />}
+      </div>
 
-        <div className="pt-3 border-t border-border flex flex-col gap-2">
-          <button className="btn-primary" onClick={onEdit}>
-            Edit booking
-          </button>
-          <button className="btn-outline text-red-600 hover:bg-red-50" onClick={onDelete}>
-            <Trash2 className="h-4 w-4" /> Delete
-          </button>
-        </div>
+      {/* Sticky bottom action bar */}
+      <div className="sticky bottom-0 bg-bg/95 backdrop-blur border-t border-border px-4 sm:px-5 py-3 flex gap-2 safe-pb">
+        <button className="btn-outline flex-1" onClick={onEdit}>
+          <Pencil className="h-4 w-4" /> Edit
+        </button>
+        <button
+          className="btn-outline text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+          onClick={onDelete}
+          aria-label="Delete booking"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
     </>
   );
 }
 
-function DetailRow({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wider text-muted font-medium mb-0.5">{label}</div>
-      <div className={multiline ? 'text-sm whitespace-pre-wrap' : 'text-sm'}>{value}</div>
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  href,
+  mono,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string;
+  sub?: string;
+  href?: string;
+  mono?: boolean;
+}) {
+  const content = (
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
+      <div className="h-7 w-7 rounded-md bg-accent/10 text-accent grid place-items-center shrink-0">
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[10px] uppercase tracking-wider text-muted font-semibold leading-tight">{label}</div>
+        <div className={cn('text-sm leading-tight mt-0.5 truncate', mono && 'font-mono text-[12px]')}>{value}</div>
+        {sub && <div className="text-[11px] text-muted truncate">{sub}</div>}
+      </div>
     </div>
+  );
+  return href ? (
+    <a href={href} className="block transition hover:border-ink">
+      {content}
+    </a>
+  ) : (
+    content
   );
 }
 

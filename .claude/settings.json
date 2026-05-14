@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(timeout 6 cat \"C:\\\\Users\\\\it12\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\f--Manuj-Projects-Hair-Crezz-Salon\\\\0d0f6c7d-0058-4894-bc0c-3f2e0f6b4d58\\\\tasks\\\\b0d7aaiw8.output\")"
+    ]
+  }
+}

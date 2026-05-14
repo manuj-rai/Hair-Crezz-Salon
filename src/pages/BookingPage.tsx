@@ -161,7 +161,7 @@ export default function BookingPage() {
 
   if (step === 4 && confirmed) {
     return (
-      <div className="min-h-full pb-28 lg:pb-0">
+      <div className="min-h-full pb-[calc(theme(spacing.32)+env(safe-area-inset-bottom))] lg:pb-0">
         <Header />
         <main className="container-x py-8 sm:py-16 max-w-xl">
           <ConfirmationView
@@ -192,7 +192,7 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-full pb-28 lg:pb-0">
+    <div className="min-h-full pb-[calc(theme(spacing.32)+env(safe-area-inset-bottom))] lg:pb-0">
       <Header />
 
       <main className="container-x py-4 sm:py-8 lg:py-12 max-w-5xl">
@@ -869,7 +869,7 @@ function ActionBar({
       : `${servicesCount} ${servicesCount === 1 ? 'service' : 'services'} · ${totalDuration} min`;
 
   return (
-    <div className="fixed inset-x-0 bottom-14 z-40 lg:hidden">
+    <div className="fixed inset-x-0 z-40 lg:hidden bottom-[calc(theme(spacing.16)+env(safe-area-inset-bottom))]">
       <div className="border-t border-border bg-surface/95 backdrop-blur px-3 py-2 flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <div className="text-[11px] text-muted truncate leading-tight">{summary}</div>

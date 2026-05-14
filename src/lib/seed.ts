@@ -13,9 +13,9 @@ export const seedServiceCategories: ServiceCategory[] = [
 ];
 
 export const seedServices: Service[] = [
-  { id: 's1', category: 'Hair', name: "Women's Haircut & Styling", description: 'Consultation, wash, precision cut and blow-dry finish.', duration_min: 60, price: 1200, active: true, sort_order: 1 },
-  { id: 's2', category: 'Hair', name: "Men's Haircut", description: 'Classic or modern cuts tailored to your face shape.', duration_min: 45, price: 600, active: true, sort_order: 2 },
-  { id: 's3', category: 'Hair', name: 'Global Hair Color', description: 'Single-tone color in your choice of brand and shade.', duration_min: 120, price: 3500, active: true, sort_order: 3 },
+  // { id: 's1', category: 'Hair', name: "Women's Haircut & Styling", description: 'Consultation, wash, precision cut and blow-dry finish.', duration_min: 60, price: 1200, active: true, sort_order: 1 },
+  // { id: 's2', category: 'Hair', name: "Men's Haircut", description: 'Classic or modern cuts tailored to your face shape.', duration_min: 45, price: 600, active: true, sort_order: 2 },
+  // { id: 's3', category: 'Hair', name: 'Global Hair Color', description: 'Single-tone color in your choice of brand and shade.', duration_min: 120, price: 3500, active: true, sort_order: 3 },
   { id: 's4', category: 'Hair', name: 'Highlights & Balayage', description: 'Hand-painted highlights for a sun-kissed, dimensional look.', duration_min: 180, price: 5500, active: true, sort_order: 4 },
   { id: 's5', category: 'Hair', name: 'Keratin / Smoothening', description: 'Frizz-free, glossy, manageable hair for up to 6 months.', duration_min: 180, price: 6500, active: true, sort_order: 5 },
   { id: 's6', category: 'Spa', name: 'Hair Spa & Treatment', description: 'Deep-conditioning ritual with scalp massage.', duration_min: 60, price: 1500, active: true, sort_order: 6 },

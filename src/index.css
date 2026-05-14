@@ -21,13 +21,20 @@
 }
 
 html, body, #root { height: 100%; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   background: rgb(var(--c-bg));
   color: rgb(var(--c-ink));
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent horizontal scroll from absolute / blurred decorations on mobile */
+  overflow-x: hidden;
+}
+/* Honor iOS safe-area insets where pinned UI sits */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-pb { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-bottom { bottom: env(safe-area-inset-bottom); }
 }
 
 @layer components {
@@ -56,7 +63,7 @@ body {
 
   .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
 
-  .section { @apply py-16 sm:py-20 lg:py-28; }
+  .section { @apply py-12 sm:py-20 lg:py-28; }
   .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.2em] text-accent; }
   .h-display { @apply font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight; }
 }
@@ -65,4 +72,25 @@ body {
 .shimmer-bg {
   background: linear-gradient(110deg, rgb(var(--c-border) / 0.4) 8%, rgb(var(--c-border) / 0.7) 18%, rgb(var(--c-border) / 0.4) 33%);
   background-size: 200% 100%;
+}
+
+/* Explicit utility to hide scrollbars on a specific element. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/*
+  Hide scrollbars globally on touch / small-screen devices. Native mobile
+  browsers already hide them, but dev-tools mobile previews and some Android
+  setups still render thin bars on overflowing tab strips — this normalises it.
+*/
+@media (pointer: coarse), (max-width: 768px) {
+  *, *::before, *::after {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
 }

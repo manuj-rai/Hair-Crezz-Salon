@@ -5,20 +5,20 @@ import { site } from '../../config/site';
 export default function Contact() {
   return (
     <section id="contact" className="section">
-      <div className="container-x grid lg:grid-cols-2 gap-10">
-        <div className="card overflow-hidden">
+      <div className="container-x grid lg:grid-cols-2 gap-6 sm:gap-10">
+        <div className="card overflow-hidden order-2 lg:order-1">
           <iframe
             title="Map"
             src={site.mapEmbed}
-            className="w-full h-[360px] lg:h-full min-h-[320px]"
+            className="w-full h-[240px] sm:h-[320px] lg:h-full lg:min-h-[320px]"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
 
-        <div>
+        <div className="order-1 lg:order-2">
           <p className="eyebrow">Visit us</p>
-          <h2 className="font-display text-3xl sm:text-4xl mt-3 mb-6">Come say hello.</h2>
+          <h2 className="font-display text-2xl sm:text-4xl mt-3 mb-5 sm:mb-6">Come say hello.</h2>
 
           <ul className="space-y-5 text-sm">
             <li className="flex items-start gap-4">

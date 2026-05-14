@@ -11,14 +11,14 @@ export default function WhyUs() {
   return (
     <section className="section">
       <div className="container-x">
-        <div className="grid lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {items.map((it) => (
-            <div key={it.title} className="card p-6 hover:border-accent transition">
-              <div className="h-11 w-11 rounded-xl bg-accent/10 text-accent grid place-items-center mb-4">
-                <it.icon className="h-5 w-5" />
+            <div key={it.title} className="card p-4 sm:p-6 hover:border-accent transition">
+              <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-accent/10 text-accent grid place-items-center mb-3 sm:mb-4">
+                <it.icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <h3 className="font-semibold mb-1">{it.title}</h3>
-              <p className="text-sm text-muted leading-relaxed">{it.body}</p>
+              <h3 className="font-semibold mb-1 text-sm sm:text-base">{it.title}</h3>
+              <p className="text-xs sm:text-sm text-muted leading-relaxed">{it.body}</p>
             </div>
           ))}
         </div>

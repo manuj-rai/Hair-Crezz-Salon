@@ -5,12 +5,12 @@ import { site } from '../config/site';
 
 export default function Footer() {
   return (
-    <footer className="bg-primary text-primary-fg mt-24">
-      <div className="container-x py-16 grid gap-12 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <div className="font-display text-2xl mb-3">{site.name}</div>
-          <p className="text-primary-fg/70 max-w-xs leading-relaxed">{site.description}</p>
-          <div className="flex gap-3 mt-5">
+    <footer className="bg-primary text-primary-fg mt-16 sm:mt-24">
+      <div className="container-x py-10 sm:py-16 grid gap-8 sm:gap-10 md:gap-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <div className="font-display text-xl sm:text-2xl mb-3">{site.name}</div>
+          <p className="text-sm text-primary-fg/70 max-w-xs leading-relaxed">{site.description}</p>
+          <div className="flex gap-3 mt-4 sm:mt-5">
             {site.social.instagram && (
               <a href={site.social.instagram} target="_blank" rel="noreferrer" className="grid place-items-center h-10 w-10 rounded-full border border-primary-fg/20 hover:bg-accent hover:text-accent-fg hover:border-accent transition">
                 <Instagram className="h-4 w-4" />
