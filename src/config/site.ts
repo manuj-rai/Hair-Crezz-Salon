@@ -22,14 +22,14 @@ export const site = {
   },
 
   contact: {
-    phone: '+91 98765 43210',
-    whatsapp: '+919876543210',
-    email: 'hello@haircrezz.com',
+    phone: '+91 87999 33509',
+    whatsapp: '+918799933509',
+    email: 'manuj.services@gmail.com',
     address: {
       line1: 'Hair Crezz Salon',
-      line2: 'Surat, Gujarat',
-      city: 'Surat',
-      state: 'Gujarat',
+      line2: 'Pune, Maharashtra',
+      city: 'Pune',
+      state: 'Maharashtra',
       country: 'India',
     },
   },
@@ -52,7 +52,7 @@ export const site = {
 
   // Embed map: replace with your Google "Embed a map" iframe src
   mapEmbed:
-    'https://www.google.com/maps?q=Hair+Crezz+Salon+Surat&output=embed',
+    'https://www.google.com/maps?q=Hair+Crezz+Salon+Pune&output=embed',
 
   // Booking constraints
   booking: {

@@ -85,10 +85,11 @@ export default function AdminCategories() {
 
   return (
     <div>
-      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-3">
+      <header className="mb-6 sm:mb-8 hidden lg:flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl">Categories</h1>
-          <p className="text-muted text-sm mt-1">Manage service groups used across pricing and booking.</p>
+          <p className="eyebrow-ink">Taxonomy</p>
+          <h1 className="font-display text-3xl tracking-tight mt-2 leading-tight">Categories</h1>
+          <p className="text-muted text-sm mt-1.5">Manage service groups used across pricing and booking.</p>
         </div>
         <button
           onClick={() => setEditing({ name: '', active: true, sort_order: items.length + 1 })}

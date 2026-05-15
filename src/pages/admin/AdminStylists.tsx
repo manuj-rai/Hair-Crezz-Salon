@@ -86,10 +86,11 @@ export default function AdminStylists() {
 
   return (
     <div>
-      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-3">
+      <header className="mb-6 sm:mb-8 hidden lg:flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl">Stylists</h1>
-          <p className="text-muted text-sm mt-1">Manage your team and their specialties.</p>
+          <p className="eyebrow-ink">The team</p>
+          <h1 className="font-display text-3xl tracking-tight mt-2 leading-tight">Stylists</h1>
+          <p className="text-muted text-sm mt-1.5">Manage your team and their specialties.</p>
         </div>
         <button onClick={() => openEdit()} className="btn-primary">
           <Plus className="h-4 w-4" /> Add stylist

@@ -11,6 +11,20 @@ export default {
       screens: { '2xl': '1280px' },
     },
     extend: {
+      opacity: {
+        3: '0.03',
+        7: '0.07',
+        8: '0.08',
+        12: '0.12',
+        15: '0.15',
+        18: '0.18',
+        22: '0.22',
+        35: '0.35',
+        45: '0.45',
+        55: '0.55',
+        65: '0.65',
+        85: '0.85',
+      },
       colors: {
         bg: 'rgb(var(--c-bg) / <alpha-value>)',
         surface: 'rgb(var(--c-surface) / <alpha-value>)',

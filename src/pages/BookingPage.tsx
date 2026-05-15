@@ -10,7 +10,6 @@ import {
   Calendar,
   Check,
   CheckCircle2,
-  ChevronDown,
   Clock,
   Loader2,
   Phone,
@@ -31,7 +30,7 @@ import { site } from '../config/site';
 
 type Step = 1 | 2 | 3 | 4;
 
-const STEPS = ['Services', 'Date & time', 'Details'] as const;
+const STEPS = ['Services', 'Date & time', 'Your details'] as const;
 
 const customerSchema = z.object({
   customer_name: z.string().min(2, 'Please enter your full name'),
@@ -160,9 +159,9 @@ export default function BookingPage() {
 
   if (step === 4 && confirmed) {
     return (
-      <div className="min-h-full pb-[calc(theme(spacing.32)+env(safe-area-inset-bottom))] lg:pb-0">
+      <div className="min-h-full pb-[env(safe-area-inset-bottom)] lg:pb-0">
         <Header />
-        <main className="container-x py-8 sm:py-16 max-w-xl">
+        <main className="container-x py-10 sm:py-20 max-w-2xl">
           <ConfirmationView
             booking={confirmed}
             services={selectedServices}
@@ -191,22 +190,22 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="min-h-full pb-[calc(theme(spacing.32)+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="min-h-full pb-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] lg:pb-0">
       <Header />
 
-      <main className="container-x py-4 sm:py-8 lg:py-12 max-w-5xl">
+      <main className="container-x py-5 sm:py-10 lg:py-14 max-w-6xl">
         <Link
           to="/"
-          className="hidden sm:inline-flex items-center gap-2 text-sm text-muted hover:text-ink mb-4"
+          className="hidden sm:inline-flex items-center gap-2 text-sm text-muted hover:text-ink mb-5 group"
         >
-          <ArrowLeft className="h-4 w-4" /> Back home
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back home
         </Link>
 
-        <div className="lg:grid lg:grid-cols-[1fr_340px] lg:gap-6 lg:items-start">
+        <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-10 lg:items-start">
           <div className="min-w-0">
             <Stepper step={step as 1 | 2 | 3} />
 
-            <div key={step} className="card p-4 sm:p-6 mt-4 animate-fade-in">
+            <div key={step} className="mt-7 sm:mt-9 animate-fade-in">
               {step === 1 && (
                 <ServicesStep
                   services={services}
@@ -287,44 +286,44 @@ export default function BookingPage() {
 // ----------------------------------------------------------------- Stepper
 
 function Stepper({ step }: { step: 1 | 2 | 3 }) {
+  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
   return (
-    <ol className="flex items-center gap-1.5 sm:gap-2 text-xs">
-      {STEPS.map((label, i) => {
-        const n = (i + 1) as 1 | 2 | 3;
-        const active = step === n;
-        const done = step > n;
-        return (
-          <li key={label} className="flex-1 last:flex-none flex items-center gap-2 min-w-0">
-            <div
-              className={cn(
-                'h-7 w-7 sm:h-8 sm:w-8 rounded-full grid place-items-center text-xs font-semibold shrink-0 transition-colors',
-                done
-                  ? 'bg-accent text-accent-fg'
-                  : active
-                  ? 'bg-primary text-primary-fg'
-                  : 'bg-surface border border-border text-muted',
-              )}
-            >
-              {done ? <Check className="h-4 w-4" /> : i + 1}
-            </div>
-            <span
-              className={cn(
-                'font-medium truncate hidden sm:inline',
-                active || done ? 'text-ink' : 'text-muted',
-              )}
-            >
-              {label}
-            </span>
-            <span className={cn('font-medium truncate sm:hidden', active ? 'text-ink' : 'hidden')}>
-              {label}
-            </span>
-            {i < STEPS.length - 1 && (
-              <div className={cn('h-px flex-1 mx-0.5 sm:mx-1', done ? 'bg-accent' : 'bg-border')} />
-            )}
-          </li>
-        );
-      })}
-    </ol>
+    <div>
+      <div className="flex items-baseline justify-between mb-3">
+        <div>
+          <p className="eyebrow-ink">Step {step} of {STEPS.length}</p>
+          <h1 className="font-display text-2xl sm:text-3xl mt-1.5 tracking-tight">
+            {STEPS[step - 1]}
+          </h1>
+        </div>
+        <ol className="hidden sm:flex items-center gap-1 text-[11px] uppercase tracking-[0.2em]">
+          {STEPS.map((label, i) => {
+            const n = (i + 1) as 1 | 2 | 3;
+            const active = step === n;
+            const done = step > n;
+            return (
+              <li
+                key={label}
+                className={cn(
+                  'px-2.5 py-1 rounded-full transition',
+                  active && 'bg-ink text-primary-fg',
+                  done && 'text-accent',
+                  !active && !done && 'text-muted',
+                )}
+              >
+                {done ? <Check className="h-3 w-3 inline -mt-0.5 mr-1" /> : `0${n}`} {label}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+      <div className="h-[2px] w-full bg-ink/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-accent transition-[width] duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -344,86 +343,104 @@ function ServicesStep({
   totalPrice: number;
 }) {
   const cats = useMemo(() => Array.from(new Set(services.map((s) => s.category))), [services]);
-  const [openCat, setOpenCat] = useState<string | null>(null);
+  const [activeCat, setActiveCat] = useState<string>('All');
+
+  const tabs = useMemo(() => ['All', ...cats], [cats]);
+  const visible = useMemo(
+    () => (activeCat === 'All' ? services : services.filter((s) => s.category === activeCat)),
+    [services, activeCat],
+  );
 
   return (
     <div>
-      <h2 className="font-display text-xl sm:text-2xl">What can we do for you?</h2>
-      <p className="text-muted text-xs sm:text-sm mt-1">Pick one or more — we'll add up the time and price.</p>
+      <p className="text-muted text-sm sm:text-base mt-1 leading-relaxed max-w-[52ch]">
+        Pick one or more. We'll add up the time and total automatically.
+      </p>
 
-      <div className="mt-4 space-y-1.5">
-        {cats.map((c) => {
-          const items = services.filter((s) => s.category === c);
-          const selectedHere = items.filter((s) => selected.includes(s.id)).length;
-          const open = openCat === c;
-          return (
-            <div key={c} className="rounded-xl border border-border overflow-hidden bg-surface">
-              <button
-                type="button"
-                onClick={() => setOpenCat(open ? null : c)}
-                className="w-full flex items-center justify-between gap-2 px-3 py-2 sm:px-3.5 sm:py-2.5 text-left hover:bg-bg/50 transition"
-              >
-                <div className="flex items-center gap-2 min-w-0 text-sm">
-                  <span className="font-medium truncate">{c}</span>
-                  <span className="text-xs text-muted shrink-0">({items.length})</span>
-                  {selectedHere > 0 && (
-                    <span className="badge bg-accent/15 text-accent shrink-0">{selectedHere}</span>
-                  )}
-                </div>
-                <ChevronDown
-                  className={cn('h-4 w-4 text-muted transition-transform shrink-0', open && 'rotate-180')}
-                />
-              </button>
-              {open && (
-                <ul className="border-t border-border divide-y divide-border sm:divide-y-0 sm:p-2 sm:grid sm:grid-cols-2 sm:gap-1.5">
-                  {items.map((s) => {
-                    const sel = selected.includes(s.id);
-                    return (
-                      <li key={s.id}>
-                        <button
-                          type="button"
-                          onClick={() => onToggle(s.id)}
-                          className={cn(
-                            'w-full text-left flex items-center gap-2.5 px-3 py-2.5 transition sm:rounded-lg sm:border sm:px-2.5 sm:py-2',
-                            sel
-                              ? 'bg-accent/5 sm:border-accent'
-                              : 'sm:border-border hover:bg-bg/60 sm:hover:border-ink',
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'h-[18px] w-[18px] rounded-md border grid place-items-center shrink-0 transition',
-                              sel ? 'bg-accent border-accent text-accent-fg' : 'border-border',
-                            )}
-                          >
-                            {sel && <Check className="h-3 w-3" />}
-                          </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium leading-snug truncate">{s.name}</span>
-                              <span className="text-sm font-semibold shrink-0">{inr(s.price)}</span>
-                            </span>
-                            <span className="text-[11px] text-muted flex items-center gap-1 mt-0.5">
-                              <Clock className="h-3 w-3" /> {s.duration_min} min
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          );
-        })}
+      {/* Category chip rail */}
+      <div className="mt-6 -mx-5 sm:-mx-6 fade-x">
+        <div className="flex gap-2 overflow-x-auto px-5 sm:px-6 no-scrollbar">
+          {tabs.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setActiveCat(c)}
+              className={cn('chip shrink-0', activeCat === c && 'chip-active')}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Service grid */}
+      {services.length === 0 ? (
+        <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-[72px] shimmer-bg animate-shimmer rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {visible.map((s) => {
+            const sel = selected.includes(s.id);
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(s.id)}
+                  aria-pressed={sel}
+                  className={cn(
+                    'w-full text-left flex items-start gap-3 p-3 sm:p-3.5 rounded-xl border transition',
+                    sel
+                      ? 'border-accent bg-accent/[0.06] shadow-soft'
+                      : 'border-ink/10 hover:border-ink/40 bg-surface',
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'mt-0.5 h-5 w-5 rounded-md border grid place-items-center shrink-0 transition',
+                      sel ? 'bg-accent border-accent text-accent-fg' : 'border-ink/25',
+                    )}
+                  >
+                    {sel && <Check className="h-3 w-3" />}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="text-[15px] font-medium text-ink leading-snug truncate">
+                        {s.name}
+                      </span>
+                      <span className="font-display text-[17px] tabular-nums shrink-0">
+                        {inr(s.price)}
+                      </span>
+                    </span>
+                    <span className="text-[11px] uppercase tracking-[0.18em] text-muted mt-0.5 inline-flex items-center gap-2">
+                      <span>{s.category}</span>
+                      <span className="h-1 w-1 rounded-full bg-accent" />
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> {s.duration_min} min
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Inline rolling total */}
       {selected.length > 0 && (
-        <div className="mt-3 rounded-lg bg-bg border border-border px-3 py-2 flex items-center justify-between text-sm">
-          <span className="text-muted text-xs sm:text-sm">
-            {selected.length} {selected.length === 1 ? 'service' : 'services'} · {totalDuration} min
+        <div className="mt-5 sm:mt-6 flex items-center justify-between gap-3 border-t border-ink/12 pt-4">
+          <span className="text-sm text-muted">
+            <span className="text-ink font-medium">
+              {selected.length} {selected.length === 1 ? 'service' : 'services'}
+            </span>
+            {' · '}
+            {totalDuration} min
           </span>
-          <span className="font-semibold">{inr(totalPrice)}</span>
+          <span className="font-display text-2xl tabular-nums">{inr(totalPrice)}</span>
         </div>
       )}
     </div>
@@ -457,67 +474,63 @@ function WhenStep({
 }) {
   return (
     <div>
-      <h2 className="font-display text-xl sm:text-2xl">When works for you?</h2>
-      <p className="text-muted text-xs sm:text-sm mt-1">Choose a day and a time that suits.</p>
+      <p className="text-muted text-sm sm:text-base mt-1 leading-relaxed max-w-[52ch]">
+        Choose a day and a time that suits.
+      </p>
 
       {stylistsEnabled && stylists.length > 0 && (
-        <div className="mt-3">
-          <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-1.5">
-            Preferred stylist
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
-            <StylistChip
-              name="Any"
-              sub="First available"
-              active={stylistId === 'any'}
-              onClick={() => onStylist('any')}
-            />
-            {stylists.map((s) => (
+        <div className="mt-7">
+          <div className="eyebrow-ink mb-3">Preferred stylist</div>
+          <div className="-mx-5 sm:-mx-6 fade-x">
+            <div className="flex gap-2 overflow-x-auto px-5 sm:px-6 no-scrollbar">
               <StylistChip
-                key={s.id}
-                name={s.name}
-                sub={s.role}
-                photo={s.photo_url ?? undefined}
-                active={stylistId === s.id}
-                onClick={() => onStylist(s.id)}
+                name="Any"
+                sub="First available"
+                active={stylistId === 'any'}
+                onClick={() => onStylist('any')}
               />
-            ))}
+              {stylists.map((s) => (
+                <StylistChip
+                  key={s.id}
+                  name={s.name}
+                  sub={s.role}
+                  photo={s.photo_url ?? undefined}
+                  active={stylistId === s.id}
+                  onClick={() => onStylist(s.id)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      <div className="mt-3">
-        <DatePicker date={date} onDate={onDate} />
+      <div className="mt-7">
+        <div className="eyebrow-ink mb-3">Date</div>
+        <DateStrip date={date} onDate={onDate} />
       </div>
 
-      <div className="mt-3">
+      <div className="mt-7">
+        <div className="eyebrow-ink mb-3">Available times</div>
         <SlotPicker slots={slots} loading={loading} time={time} onTime={onTime} />
       </div>
     </div>
   );
 }
 
-function DatePicker({ date, onDate }: { date: Date; onDate: (d: Date) => void }) {
+function DateStrip({ date, onDate }: { date: Date; onDate: (d: Date) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const today = startOfDay(new Date());
   const max = new Date(today);
   max.setDate(max.getDate() + site.booking.advanceWindowDays - 1);
 
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const quick = [
-    { label: 'Today', d: today },
-    { label: 'Tomorrow', d: tomorrow },
-    {
-      label: nextOfWeekday(today, 6).toLocaleDateString('en-US', { weekday: 'short' }),
-      d: nextOfWeekday(today, 6),
-    },
-    {
-      label: nextOfWeekday(today, 0).toLocaleDateString('en-US', { weekday: 'short' }),
-      d: nextOfWeekday(today, 0),
-    },
-  ];
+  const days = useMemo(() => {
+    return Array.from({ length: site.booking.advanceWindowDays }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openPicker() {
     const el = inputRef.current;
@@ -532,22 +545,41 @@ function DatePicker({ date, onDate }: { date: Date; onDate: (d: Date) => void })
 
   return (
     <div>
+      <div className="-mx-5 sm:-mx-6 fade-x">
+        <div className="flex gap-2 overflow-x-auto px-5 sm:px-6 pb-1 no-scrollbar snap-x snap-mandatory">
+          {days.map((d) => {
+            const sel = isoDate(d) === isoDate(date);
+            const isToday = isoDate(d) === isoDate(today);
+            const dow = d.toLocaleDateString('en-US', { weekday: 'short' });
+            const dm = d.getDate();
+            return (
+              <button
+                key={isoDate(d)}
+                type="button"
+                onClick={() => onDate(d)}
+                className={cn(
+                  'snap-start shrink-0 w-[58px] sm:w-[64px] py-3 rounded-xl border text-center transition',
+                  sel
+                    ? 'bg-ink text-primary-fg border-ink'
+                    : 'bg-surface border-ink/10 hover:border-ink/40 text-ink',
+                )}
+              >
+                <div className="text-[10px] uppercase tracking-[0.18em] opacity-80">
+                  {isToday ? 'Today' : dow}
+                </div>
+                <div className="font-display text-xl mt-1 leading-none tabular-nums">{dm}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={openPicker}
-        className="w-full flex items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2 hover:border-ink transition"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted hover:text-ink transition"
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Calendar className="h-4 w-4 text-accent shrink-0" />
-          <span className="font-medium text-sm truncate">
-            {date.toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-        </div>
-        <ChevronDown className="h-4 w-4 text-muted" />
+        <Calendar className="h-3.5 w-3.5" /> Pick a specific date
       </button>
 
       <input
@@ -563,39 +595,8 @@ function DatePicker({ date, onDate }: { date: Date; onDate: (d: Date) => void })
           onDate(new Date(y, m - 1, d));
         }}
       />
-
-      <div className="mt-1.5 grid grid-cols-4 gap-1">
-        {quick.map((q) => {
-          const sel = isoDate(q.d) === isoDate(date);
-          return (
-            <button
-              key={q.label}
-              type="button"
-              onClick={() => onDate(q.d)}
-              className={cn(
-                'rounded-md border py-1 text-[11px] font-medium leading-tight transition',
-                sel
-                  ? 'bg-primary text-primary-fg border-primary'
-                  : 'bg-surface border-border text-muted hover:text-ink hover:border-ink',
-              )}
-            >
-              <div>{q.label}</div>
-              <div className="text-[10px] opacity-70 font-normal">
-                {q.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-              </div>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
-}
-
-function nextOfWeekday(from: Date, dow: number) {
-  const d = new Date(from);
-  const diff = (dow - d.getDay() + 7) % 7 || 7;
-  d.setDate(d.getDate() + diff);
-  return d;
 }
 
 function StylistChip({
@@ -616,14 +617,14 @@ function StylistChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'shrink-0 rounded-lg border px-2 py-1.5 flex items-center gap-2 transition',
-        active ? 'border-accent bg-accent/5' : 'border-border hover:border-ink',
+        'shrink-0 rounded-full border pl-1 pr-3.5 py-1 flex items-center gap-2 transition',
+        active ? 'border-accent bg-accent/[0.06]' : 'border-ink/15 hover:border-ink/40',
       )}
     >
       {photo ? (
         <img src={photo} alt="" className="h-7 w-7 rounded-full object-cover" />
       ) : (
-        <div className="h-7 w-7 rounded-full bg-primary/10 text-primary grid place-items-center">
+        <div className="h-7 w-7 rounded-full bg-ink/8 text-ink grid place-items-center">
           <User className="h-3.5 w-3.5" />
         </div>
       )}
@@ -648,18 +649,26 @@ function SlotPicker({
 }) {
   if (loading) {
     return (
-      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="h-9 rounded-md shimmer-bg animate-shimmer" />
+      <div className="space-y-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i}>
+            <div className="h-3 w-20 mb-2 shimmer-bg animate-shimmer rounded" />
+            <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+              {Array.from({ length: 8 }).map((_, j) => (
+                <div key={j} className="h-10 rounded-lg shimmer-bg animate-shimmer" />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     );
   }
   if (!slots || slots.length === 0) {
     return (
-      <div className="text-center py-6 text-muted">
-        <Calendar className="h-6 w-6 mx-auto mb-1.5 opacity-50" />
-        <p className="text-xs">We're closed on this day. Please pick another date.</p>
+      <div className="text-center py-10 sm:py-14 border border-dashed border-ink/15 rounded-xl">
+        <Calendar className="h-6 w-6 mx-auto mb-3 text-muted opacity-60" />
+        <p className="text-sm text-muted">We're closed on this day.</p>
+        <p className="text-xs text-muted mt-1">Please pick another date above.</p>
       </div>
     );
   }
@@ -676,17 +685,23 @@ function SlotPicker({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-5">
       {groups
         .filter((g) => g.items.length > 0)
         .map((g) => {
           const Icon = g.icon;
+          const availableCount = g.items.filter((s) => s.available).length;
           return (
             <div key={g.label}>
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted font-semibold mb-1">
-                <Icon className="h-3 w-3" /> {g.label}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted font-semibold">
+                  <Icon className="h-3.5 w-3.5 text-accent" /> {g.label}
+                </div>
+                <span className="text-[10px] uppercase tracking-[0.18em] text-muted">
+                  {availableCount} open
+                </span>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-1">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
                 {g.items.map((s) => (
                   <button
                     key={s.time}
@@ -694,12 +709,12 @@ function SlotPicker({
                     disabled={!s.available}
                     onClick={() => onTime(s.time)}
                     className={cn(
-                      'rounded-md h-9 px-1 text-xs font-medium border transition',
+                      'rounded-lg h-10 px-1 text-xs font-medium tabular-nums transition border',
                       !s.available
-                        ? 'border-border text-muted/50 line-through bg-surface/50 cursor-not-allowed'
+                        ? 'border-ink/8 text-muted/40 line-through bg-surface cursor-not-allowed'
                         : time === s.time
-                        ? 'border-primary bg-primary text-primary-fg'
-                        : 'border-border bg-surface hover:border-ink',
+                        ? 'border-ink bg-ink text-primary-fg shadow-soft'
+                        : 'border-ink/12 bg-surface text-ink hover:border-ink/45',
                     )}
                   >
                     {fmtTime12(s.time)}
@@ -748,78 +763,84 @@ function DetailsStep({
         onSubmit();
       }}
     >
-      <h2 className="font-display text-xl sm:text-2xl">Almost there.</h2>
-      <p className="text-muted text-xs sm:text-sm mt-1">We'll send a confirmation to your phone.</p>
+      <p className="text-muted text-sm sm:text-base mt-1 leading-relaxed max-w-[52ch]">
+        Just a few details and you're booked. We'll text confirmation to your phone.
+      </p>
 
-      <div className="rounded-lg bg-bg border border-border px-3 py-2 mt-3 text-xs sm:text-sm space-y-1">
-        <div className="flex items-start gap-2">
-          <Scissors className="h-3.5 w-3.5 text-muted mt-0.5 shrink-0" />
-          <span className="flex-1 leading-snug">{services.map((s) => s.name).join(' + ')}</span>
-          <span className="font-semibold">{inr(totalPrice)}</span>
-        </div>
-        <div className="flex items-center gap-2 text-muted">
-          <Calendar className="h-3.5 w-3.5 shrink-0" />
-          <span>
-            {date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            {time && ` · ${fmtTime12(time)}`}
-            {totalDuration > 0 && ` · ${totalDuration} min`}
-          </span>
-        </div>
-        {stylistsEnabled && (
-          <div className="flex items-center gap-2 text-muted">
-            <User className="h-3.5 w-3.5 shrink-0" />
-            <span>{stylist ? stylist.name : 'Any available stylist'}</span>
+      {/* Inline review */}
+      <div className="mt-6 rounded-xl border border-ink/12 bg-surface p-4 sm:p-5 space-y-3 text-sm">
+        <Row icon={Scissors}>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="leading-snug">{services.map((s) => s.name).join(' + ')}</span>
+            <span className="font-display text-lg tabular-nums shrink-0">{inr(totalPrice)}</span>
           </div>
+        </Row>
+        <Row icon={Calendar}>
+          <span>
+            {date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {time && (
+              <>
+                {' '}·{' '}
+                <span className="text-ink font-medium tabular-nums">{fmtTime12(time)}</span>
+              </>
+            )}
+            {totalDuration > 0 && <span className="text-muted"> · {totalDuration} min</span>}
+          </span>
+        </Row>
+        {stylistsEnabled && (
+          <Row icon={User}>
+            <span>{stylist ? stylist.name : 'Any available stylist'}</span>
+          </Row>
         )}
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-2.5 mt-4">
+      <div className="grid sm:grid-cols-2 gap-3 mt-5">
         <div className="sm:col-span-2">
-          <label className="label text-xs sm:text-sm mb-1">Full name</label>
+          <label className="label">Full name</label>
           <input
-            className="input text-sm py-2"
+            className="input"
             autoComplete="name"
             {...register('customer_name')}
             placeholder="e.g. Anaya Sharma"
           />
           {errors.customer_name && (
-            <p className="text-[11px] text-red-600 mt-0.5">{errors.customer_name.message}</p>
+            <p className="text-[11px] text-red-600 mt-1">{errors.customer_name.message}</p>
           )}
         </div>
         <div>
-          <label className="label text-xs sm:text-sm mb-1">Phone</label>
+          <label className="label">Phone</label>
           <input
-            className="input text-sm py-2"
+            className="input tabular-nums"
             type="tel"
             inputMode="tel"
             autoComplete="tel"
             {...register('phone')}
             placeholder="+91 ..."
           />
-          {errors.phone && <p className="text-[11px] text-red-600 mt-0.5">{errors.phone.message}</p>}
+          {errors.phone && <p className="text-[11px] text-red-600 mt-1">{errors.phone.message}</p>}
         </div>
         <div>
-          <label className="label text-xs sm:text-sm mb-1">
+          <label className="label">
             Email <span className="text-muted font-normal">(optional)</span>
           </label>
           <input
-            className="input text-sm py-2"
+            className="input"
             type="email"
             autoComplete="email"
             {...register('email')}
             placeholder="you@example.com"
           />
-          {errors.email && <p className="text-[11px] text-red-600 mt-0.5">{errors.email.message}</p>}
+          {errors.email && <p className="text-[11px] text-red-600 mt-1">{errors.email.message}</p>}
         </div>
         <div className="sm:col-span-2">
-          <label className="label text-xs sm:text-sm mb-1">
+          <label className="label">
             Notes <span className="text-muted font-normal">(optional)</span>
           </label>
           <textarea
-            className="textarea text-sm py-2"
-            rows={2}
+            className="textarea"
+            rows={3}
             {...register('notes')}
-            placeholder="Allergies, inspiration, anything we should know"
+            placeholder="Allergies, hair inspiration, anything we should know"
           />
         </div>
       </div>
@@ -831,7 +852,16 @@ function DetailsStep({
   );
 }
 
-// ----------------------------------------------------------------- Action bar
+function Row({ icon: Icon, children }: { icon: typeof Calendar; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icon className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- Action bar (mobile)
 
 function ActionBar({
   step,
@@ -860,7 +890,7 @@ function ActionBar({
     step === 1
       ? servicesCount > 0
         ? `${servicesCount} ${servicesCount === 1 ? 'service' : 'services'} · ${totalDuration} min`
-        : 'Pick at least one service'
+        : 'Choose at least one service'
       : step === 2
       ? time
         ? `${fmtTime12(time)} · ${totalDuration} min`
@@ -868,32 +898,53 @@ function ActionBar({
       : `${servicesCount} ${servicesCount === 1 ? 'service' : 'services'} · ${totalDuration} min`;
 
   return (
-    <div className="fixed inset-x-0 z-40 lg:hidden bottom-[calc(theme(spacing.16)+env(safe-area-inset-bottom))]">
-      <div className="border-t border-border bg-surface/95 backdrop-blur px-3 py-2 flex items-center gap-2">
+    <div
+      className="fixed inset-x-0 bottom-0 z-50 lg:hidden border-t border-ink/[0.08] bg-bg/95 backdrop-blur supports-[backdrop-filter]:bg-bg/80 shadow-[0_-2px_14px_-8px_rgb(0_0_0/0.18)] pb-[env(safe-area-inset-bottom)]"
+      role="region"
+      aria-label="Booking progress"
+    >
+      <div className="px-4 py-3 flex items-center gap-2.5">
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] text-muted truncate leading-tight">{summary}</div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted truncate leading-tight">
+            {summary}
+          </div>
           {totalPrice > 0 && (
-            <div className="text-sm font-semibold leading-tight">{inr(totalPrice)}</div>
+            <div className="font-display text-lg leading-tight tabular-nums">{inr(totalPrice)}</div>
           )}
         </div>
         {step > 1 && (
-          <button onClick={onBack} className="btn-outline btn-sm" type="button" aria-label="Back">
-            <ArrowLeft className="h-3.5 w-3.5" />
+          <button
+            onClick={onBack}
+            className="h-11 w-11 grid place-items-center rounded-full border border-ink/15 text-ink hover:border-ink transition"
+            type="button"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-4 w-4" />
           </button>
         )}
         {step < 3 ? (
-          <button onClick={onNext} disabled={!canContinue} className="btn-primary btn-sm" type="button">
-            Continue <ArrowRight className="h-3.5 w-3.5" />
+          <button
+            onClick={onNext}
+            disabled={!canContinue}
+            className="btn-primary"
+            type="button"
+          >
+            Continue <ArrowRight className="h-4 w-4" />
           </button>
         ) : (
-          <button onClick={onSubmit} disabled={submitting} className="btn-primary btn-sm" type="button">
+          <button
+            onClick={onSubmit}
+            disabled={submitting}
+            className="btn-primary"
+            type="button"
+          >
             {submitting ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Booking…
+                <Loader2 className="h-4 w-4 animate-spin" /> Booking…
               </>
             ) : (
               <>
-                Confirm <Check className="h-3.5 w-3.5" />
+                Confirm <Check className="h-4 w-4" />
               </>
             )}
           </button>
@@ -935,23 +986,30 @@ function DesktopSummary({
   onSubmit: () => void;
 }) {
   return (
-    <aside className="hidden lg:block sticky top-24">
-      <div className="card p-5">
-        <h3 className="font-display text-lg">Your booking</h3>
+    <aside className="hidden lg:block sticky top-28">
+      <div className="border border-ink/12 rounded-2xl bg-surface p-6 shadow-soft">
+        <div className="flex items-baseline justify-between">
+          <p className="eyebrow-ink">Your booking</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted">Order summary</span>
+        </div>
 
-        <div className="mt-4 space-y-4 text-sm">
+        <div className="mt-5 space-y-5 text-sm">
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted font-semibold mb-1.5">
-              Services
-            </div>
+            <div className="eyebrow-ink mb-2">Services</div>
             {services.length === 0 ? (
-              <div className="text-muted">Not selected</div>
+              <div className="text-muted text-sm">None selected</div>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-2">
                 {services.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between gap-2">
-                    <span className="truncate">{s.name}</span>
-                    <span className="text-muted shrink-0">{inr(s.price)}</span>
+                  <li
+                    key={s.id}
+                    className="flex items-baseline justify-between gap-3 border-b border-dotted border-ink/15 pb-2 last:border-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate">{s.name}</div>
+                      <div className="text-[11px] text-muted tracking-wide">{s.duration_min} min</div>
+                    </div>
+                    <span className="font-display tabular-nums shrink-0">{inr(s.price)}</span>
                   </li>
                 ))}
               </ul>
@@ -960,9 +1018,7 @@ function DesktopSummary({
 
           {stylistsEnabled && (
             <div>
-              <div className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">
-                Stylist
-              </div>
+              <div className="eyebrow-ink mb-1.5">Stylist</div>
               <div className={stylist ? '' : 'text-muted'}>
                 {stylist ? stylist.name : 'Any available'}
               </div>
@@ -970,9 +1026,7 @@ function DesktopSummary({
           )}
 
           <div>
-            <div className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">
-              When
-            </div>
+            <div className="eyebrow-ink mb-1.5">When</div>
             <div className={time ? '' : 'text-muted'}>
               {time
                 ? `${date.toLocaleDateString('en-US', {
@@ -983,19 +1037,19 @@ function DesktopSummary({
                 : 'Not selected'}
             </div>
             {totalDuration > 0 && (
-              <div className="text-xs text-muted mt-0.5">{totalDuration} min total</div>
+              <div className="text-xs text-muted mt-0.5 tracking-wide">{totalDuration} min total</div>
             )}
           </div>
         </div>
 
         {services.length > 0 && (
-          <div className="border-t border-border mt-5 pt-4 flex items-center justify-between">
-            <span className="text-sm text-muted">Total</span>
-            <span className="font-semibold text-lg">{inr(totalPrice)}</span>
+          <div className="border-t border-ink/12 mt-6 pt-4 flex items-baseline justify-between">
+            <span className="eyebrow-ink">Total</span>
+            <span className="font-display text-3xl tabular-nums">{inr(totalPrice)}</span>
           </div>
         )}
 
-        <div className="mt-5 flex gap-2">
+        <div className="mt-6 flex gap-2">
           {step > 1 && (
             <button onClick={onBack} type="button" className="btn-outline flex-1">
               <ArrowLeft className="h-4 w-4" /> Back
@@ -1006,7 +1060,7 @@ function DesktopSummary({
               onClick={onNext}
               disabled={!canContinue}
               type="button"
-              className="btn-primary flex-1"
+              className="btn-primary flex-[1.4]"
             >
               Continue <ArrowRight className="h-4 w-4" />
             </button>
@@ -1015,7 +1069,7 @@ function DesktopSummary({
               onClick={onSubmit}
               disabled={submitting}
               type="button"
-              className="btn-primary flex-1"
+              className="btn-primary flex-[1.4]"
             >
               {submitting ? (
                 <>
@@ -1029,6 +1083,10 @@ function DesktopSummary({
             </button>
           )}
         </div>
+
+        <p className="text-[11px] text-muted mt-4 leading-relaxed">
+          You won't be charged. We'll text to confirm.
+        </p>
       </div>
     </aside>
   );
@@ -1052,48 +1110,63 @@ function ConfirmationView({
   totalPrice: number;
 }) {
   return (
-    <div className="text-center animate-fade-in">
-      <div className="mx-auto h-16 w-16 rounded-full bg-accent/15 text-accent grid place-items-center">
-        <CheckCircle2 className="h-8 w-8" />
+    <div className="animate-fade-in">
+      <div className="text-center">
+        <div className="mx-auto h-16 w-16 rounded-full bg-accent/15 text-accent grid place-items-center">
+          <CheckCircle2 className="h-8 w-8" />
+        </div>
+        <p className="eyebrow mt-6">Confirmed</p>
+        <h2 className="h-display mt-3">
+          You're <span className="italic text-accent">booked in</span>.
+        </h2>
+        <p className="text-muted mt-3 max-w-md mx-auto">
+          A confirmation will be sent to{' '}
+          <span className="text-ink font-medium">{booking.phone}</span>. See you soon.
+        </p>
       </div>
-      <h2 className="font-display text-3xl sm:text-4xl mt-5">You're booked in.</h2>
-      <p className="text-muted mt-2">
-        A confirmation will be sent to{' '}
-        <span className="font-medium text-ink">{booking.phone}</span>.
-      </p>
 
-      <div className="card p-5 mt-8 text-left max-w-sm mx-auto space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-accent/10 text-accent grid place-items-center shrink-0">
-            <Scissors className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{services.map((s) => s.name).join(' + ')}</div>
-            <div className="text-xs text-muted">
-              {totalDuration} min · {inr(totalPrice)}
+      {/* Receipt-like card */}
+      <div className="mt-10 sm:mt-12 rounded-2xl border border-ink/12 bg-surface p-6 sm:p-8 max-w-md mx-auto shadow-soft">
+        <div className="flex items-baseline justify-between border-b border-dashed border-ink/15 pb-4 mb-4">
+          <div>
+            <div className="eyebrow-ink">Booking</div>
+            <div className="font-display text-xl mt-1 tabular-nums">
+              {booking.id.slice(0, 6).toUpperCase()}
             </div>
           </div>
+          <div className="text-right">
+            <div className="eyebrow-ink">Total</div>
+            <div className="font-display text-2xl mt-1 tabular-nums">{inr(totalPrice)}</div>
+          </div>
         </div>
-        {stylistsEnabled && (
+
+        <ul className="space-y-3.5 text-sm">
           <SummaryRow
-            icon={User}
-            title={stylist ? stylist.name : 'Any available stylist'}
-            sub={stylist?.role}
+            icon={Scissors}
+            title={services.map((s) => s.name).join(' + ')}
+            sub={`${totalDuration} min`}
           />
-        )}
-        <SummaryRow
-          icon={Calendar}
-          title={new Date(booking.date).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-          sub={fmtTime12(booking.time)}
-        />
-        <SummaryRow icon={Phone} title={booking.customer_name} sub={booking.phone} />
+          <SummaryRow
+            icon={Calendar}
+            title={new Date(booking.date).toLocaleDateString('en-US', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+            })}
+            sub={fmtTime12(booking.time)}
+          />
+          {stylistsEnabled && (
+            <SummaryRow
+              icon={User}
+              title={stylist ? stylist.name : 'Any available stylist'}
+              sub={stylist?.role}
+            />
+          )}
+          <SummaryRow icon={Phone} title={booking.customer_name} sub={booking.phone} />
+        </ul>
       </div>
 
-      <div className="mt-8 flex flex-wrap gap-3 justify-center">
+      <div className="mt-10 flex flex-wrap gap-3 justify-center">
         <Link to="/" className="btn-outline">
           Back to home
         </Link>
@@ -1115,14 +1188,14 @@ function SummaryRow({
   sub?: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="h-9 w-9 rounded-full bg-accent/10 text-accent grid place-items-center shrink-0">
+    <li className="flex items-center gap-3">
+      <span className="h-9 w-9 rounded-full bg-accent/12 text-accent grid place-items-center shrink-0">
         <Icon className="h-4 w-4" />
-      </div>
+      </span>
       <div className="min-w-0">
         <div className="text-sm font-medium truncate">{title}</div>
-        {sub && <div className="text-xs text-muted truncate">{sub}</div>}
+        {sub && <div className="text-xs text-muted truncate tabular-nums">{sub}</div>}
       </div>
-    </div>
+    </li>
   );
 }

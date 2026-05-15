@@ -133,12 +133,16 @@ export default function AdminHours() {
   return (
     <div className="space-y-8">
       <section>
-        <header className="mb-3 sm:mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <header className="mb-5 sm:mb-6 flex items-end justify-between gap-3 flex-wrap">
           <div className="hidden lg:block">
-            <h1 className="font-display text-2xl sm:text-3xl">Business hours</h1>
-            <p className="text-muted text-sm mt-1">Set when the salon accepts bookings each day.</p>
+            <p className="eyebrow-ink">Schedule</p>
+            <h1 className="font-display text-3xl tracking-tight mt-2 leading-tight">Business hours</h1>
+            <p className="text-muted text-sm mt-1.5">Set when the salon accepts bookings each day.</p>
           </div>
-          <h2 className="font-display text-xl lg:hidden">Business hours</h2>
+          <div className="lg:hidden">
+            <p className="eyebrow-ink">Schedule</p>
+            <h2 className="font-display text-2xl tracking-tight mt-1">Business hours</h2>
+          </div>
           <button
             onClick={saveAll}
             disabled={dirty.size === 0 || saving}
@@ -148,42 +152,50 @@ export default function AdminHours() {
           </button>
         </header>
 
-        {/* Mobile compact list */}
+        {/* Mobile compact list — 2 rows per day so time inputs have room */}
         <div className="lg:hidden card divide-y divide-border">
           {loading ? (
             Array.from({ length: 7 }).map((_, i) => (
               <div key={i} className="p-3"><div className="h-7 shimmer-bg animate-shimmer rounded" /></div>
             ))
           ) : hours.map((h) => (
-            <div key={h.day_of_week} className={'p-3 flex items-center gap-2 ' + (dirty.has(h.day_of_week) ? 'bg-amber-50/50' : '')}>
-              <div className="w-12 font-medium text-sm shrink-0">{DAYS[h.day_of_week].slice(0, 3)}</div>
-              {h.closed ? (
-                <span className="badge bg-red-100 text-red-900 mr-auto">Closed</span>
-              ) : (
-                <div className="flex items-center gap-1.5 flex-1">
+            <div
+              key={h.day_of_week}
+              className={'px-3 py-2.5 space-y-2 ' + (dirty.has(h.day_of_week) ? 'bg-amber-50/50' : '')}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium text-sm">{DAYS[h.day_of_week]}</span>
+                  {h.closed && (
+                    <span className="badge bg-red-100 text-red-900 shrink-0">Closed</span>
+                  )}
+                </div>
+                <label className="flex items-center gap-1.5 text-xs text-muted shrink-0 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={h.closed}
+                    onChange={(e) => patchHour(h.day_of_week, { closed: e.target.checked })}
+                  />
+                  Closed
+                </label>
+              </div>
+              {!h.closed && (
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
                   <input
                     type="time"
-                    className="input py-1.5 text-sm flex-1 min-w-0"
+                    className="input py-1.5 text-sm w-full"
                     value={h.open_time}
                     onChange={(e) => patchHour(h.day_of_week, { open_time: e.target.value })}
                   />
                   <span className="text-muted text-xs">–</span>
                   <input
                     type="time"
-                    className="input py-1.5 text-sm flex-1 min-w-0"
+                    className="input py-1.5 text-sm w-full"
                     value={h.close_time}
                     onChange={(e) => patchHour(h.day_of_week, { close_time: e.target.value })}
                   />
                 </div>
               )}
-              <label className="flex items-center gap-1.5 text-xs text-muted shrink-0 ml-auto">
-                <input
-                  type="checkbox"
-                  checked={h.closed}
-                  onChange={(e) => patchHour(h.day_of_week, { closed: e.target.checked })}
-                />
-                Closed
-              </label>
             </div>
           ))}
         </div>
@@ -246,12 +258,13 @@ export default function AdminHours() {
       </section>
 
       <section>
-        <header className="mb-3 sm:mb-4 flex items-start justify-between gap-3 flex-wrap">
+        <header className="mb-5 sm:mb-6 flex items-end justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="font-display text-lg sm:text-2xl flex items-center gap-2">
-              <CalendarOff className="h-4 w-4 sm:h-5 sm:w-5 text-accent" /> Blocked time
+            <p className="eyebrow-ink">Time off</p>
+            <h2 className="font-display text-2xl sm:text-3xl tracking-tight mt-1 flex items-center gap-2">
+              <CalendarOff className="h-5 w-5 text-accent" /> Blocked time
             </h2>
-            <p className="text-muted text-xs sm:text-sm mt-1">Vacations, training, off-site events.</p>
+            <p className="text-muted text-sm mt-1.5">Vacations, training, off-site events.</p>
           </div>
           <button
             onClick={() => setEditingBlock({ date: today, start_time: '10:00', end_time: '20:00', reason: '' })}

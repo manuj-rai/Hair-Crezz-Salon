@@ -99,10 +99,11 @@ export default function AdminServices() {
 
   return (
     <div>
-      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-3">
+      <header className="mb-6 sm:mb-8 hidden lg:flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl">Services</h1>
-          <p className="text-muted text-sm mt-1">Add, edit and price the salon menu.</p>
+          <p className="eyebrow-ink">The menu</p>
+          <h1 className="font-display text-3xl tracking-tight mt-2 leading-tight">Services</h1>
+          <p className="text-muted text-sm mt-1.5">Add, edit and price the salon menu.</p>
         </div>
         <button
           onClick={() => setEditing({ name: '', category: categories[0]?.name ?? '', price: 0, duration_min: 30, description: '', active: true })}

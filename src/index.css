@@ -7,15 +7,15 @@
   or set them statically here for a fully static deploy.
 */
 :root {
-  --c-bg: 250 248 246;
+  --c-bg: 250 247 242;
   --c-surface: 255 255 255;
-  --c-border: 232 226 220;
-  --c-ink: 24 24 27;
-  --c-muted: 113 113 122;
-  --c-primary: 24 24 27;
-  --c-primary-fg: 250 248 246;
-  --c-accent: 184 134 71;
-  --c-accent-fg: 24 24 27;
+  --c-border: 230 222 213;
+  --c-ink: 22 22 25;
+  --c-muted: 113 108 102;
+  --c-primary: 22 22 25;
+  --c-primary-fg: 250 247 242;
+  --c-accent: 168 122 64;
+  --c-accent-fg: 22 22 25;
   --font-sans: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   --font-display: 'Playfair Display', 'Georgia', serif;
 }
@@ -37,20 +37,23 @@ body {
   .safe-bottom { bottom: env(safe-area-inset-bottom); }
 }
 
+::selection { background: rgb(var(--c-accent) / 0.25); color: rgb(var(--c-ink)); }
+
 @layer components {
-  .container-x { @apply container mx-auto px-4 sm:px-6 lg:px-8; }
+  .container-x { @apply container mx-auto px-5 sm:px-6 lg:px-10; }
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-medium
-           transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none
+           transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none
            focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
            focus-visible:ring-offset-bg;
   }
   .btn-primary { @apply btn bg-primary text-primary-fg hover:opacity-90 hover:shadow-glow; }
   .btn-accent  { @apply btn bg-accent text-accent-fg hover:brightness-110 hover:shadow-glow; }
-  .btn-outline { @apply btn border border-border bg-transparent text-ink hover:bg-surface; }
+  .btn-outline { @apply btn border border-ink/[0.15] bg-transparent text-ink hover:border-ink hover:bg-ink/[0.03]; }
   .btn-ghost   { @apply btn bg-transparent text-ink hover:bg-surface; }
   .btn-sm      { @apply px-4 py-2 text-xs; }
+  .btn-lg      { @apply px-7 py-3.5 text-[15px]; }
 
   .card { @apply bg-surface border border-border rounded-2xl shadow-soft; }
 
@@ -63,9 +66,46 @@ body {
 
   .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
 
-  .section { @apply py-12 sm:py-20 lg:py-28; }
-  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.2em] text-accent; }
-  .h-display { @apply font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight; }
+  .section { @apply py-14 sm:py-24 lg:py-32; }
+  .section-tight { @apply py-10 sm:py-16 lg:py-20; }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-accent;
+  }
+  .eyebrow-ink {
+    @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-muted;
+  }
+
+  .h-display {
+    @apply font-display font-medium leading-[1.02] tracking-[-0.01em]
+           text-[2.25rem] sm:text-[3rem] lg:text-[4rem] xl:text-[4.5rem];
+  }
+  .h-display-xl {
+    @apply font-display font-medium leading-[0.98] tracking-[-0.015em]
+           text-[2.5rem] sm:text-[3.5rem] lg:text-[5rem] xl:text-[6rem];
+  }
+
+  .rule {
+    @apply h-px w-full bg-ink/10;
+  }
+  .rule-accent {
+    @apply h-px w-full bg-accent/40;
+  }
+
+  /* Editorial number style for sequenced lists */
+  .num-marker {
+    @apply font-display text-2xl sm:text-3xl text-accent tabular-nums;
+  }
+
+  /* Reusable chip used for time / filter tabs */
+  .chip {
+    @apply inline-flex items-center justify-center rounded-full border border-ink/[0.12]
+           bg-transparent text-ink/70 text-xs font-medium px-3.5 py-1.5 transition
+           hover:text-ink hover:border-ink/40;
+  }
+  .chip-active {
+    @apply bg-ink text-primary-fg border-ink;
+  }
 }
 
 /* shimmer placeholder bg */
@@ -77,6 +117,62 @@ body {
 /* Explicit utility to hide scrollbars on a specific element. */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Edge-fade mask for horizontally scrolling rails */
+.fade-x {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+          mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+}
+
+/* Subtle grain for hero / CTA — uses cheap inline data-uri */
+.grain {
+  position: relative;
+}
+.grain::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.06;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+/* Marquee track */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-track {
+  animation: marquee var(--marquee-duration, 30s) linear infinite;
+  width: max-content;
+}
+.marquee-pause:hover .marquee-track { animation-play-state: paused; }
+
+/* Soft attention halo for the mobile Book button. Slow + subtle by design. */
+@keyframes book-halo {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.45); }
+}
+.book-halo {
+  animation: book-halo 2.6s ease-in-out infinite;
+}
+
+/* Gentle vertical bob for the same button — pairs with the halo. */
+@keyframes book-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+.book-bob {
+  animation: book-bob 2.6s ease-in-out infinite;
+}
+
+/* Slow Ken-Burns drift for hero / cta imagery */
+@keyframes kenburns {
+  0%   { transform: scale(1.04) translate3d(0, 0, 0); }
+  50%  { transform: scale(1.08) translate3d(-1%, -1%, 0); }
+  100% { transform: scale(1.04) translate3d(0, 0, 0); }
+}
+.kenburns { animation: kenburns 18s ease-in-out infinite; }
 
 /*
   Hide scrollbars globally on touch / small-screen devices. Native mobile
@@ -93,4 +189,9 @@ body {
     height: 0 !important;
     display: none !important;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track, .kenburns, .book-halo, .book-bob, .animate-fade-in, .animate-slide-up { animation: none !important; }
+  html { scroll-behavior: auto; }
 }

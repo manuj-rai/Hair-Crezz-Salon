@@ -159,10 +159,11 @@ export default function AdminBookings() {
   const pendingCount = bookings.filter((b) => b.status === 'pending').length;
   return (
     <div>
-      <header className="mb-4 sm:mb-6 hidden lg:flex items-start justify-between gap-4">
+      <header className="mb-6 sm:mb-8 hidden lg:flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl sm:text-3xl">Bookings</h1>
-          <p className="text-muted text-sm mt-1">Confirm, cancel and complete appointments.</p>
+          <p className="eyebrow-ink">Calendar</p>
+          <h1 className="font-display text-3xl tracking-tight mt-2 leading-tight">Bookings</h1>
+          <p className="text-muted text-sm mt-1.5">Confirm, cancel and complete appointments.</p>
         </div>
         <button onClick={() => setAdding(true)} className="btn-primary">
           <Plus className="h-4 w-4" /> Add booking
